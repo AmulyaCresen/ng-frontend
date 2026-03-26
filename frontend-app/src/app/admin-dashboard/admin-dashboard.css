@@ -1,0 +1,61 @@
+.dashboard {
+  padding: 30px;
+  font-family: 'Segoe UI', sans-serif;
+  background: #f4f7fb;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h2 {
+  margin: 0;
+}
+
+/* Logout button */
+.header button {
+  padding: 8px 14px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.header button:hover {
+  background: #dc2626;
+}
+
+/* Welcome */
+.welcome {
+  margin: 20px 0;
+  color: #475569;
+}
+
+/* Cards */
+.cards {
+  display: flex;
+  gap: 20px;
+}
+
+/* Card */
+.card {
+  flex: 1;
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: 0.2s;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Hover effect */
+.card:hover {
+  transform: translateY(-5px);
+}
