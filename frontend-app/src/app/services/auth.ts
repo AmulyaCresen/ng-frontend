@@ -14,22 +14,19 @@ export class AuthService {
     return this.http.post(`${this.baseUrl}/users/login`, data);
   }
 
-  // ✅ Save role in localStorage
   setRole(role: string) {
     localStorage.setItem('role', role);
   }
 
-  // ✅ Get role
   getRole(): string | null {
     return localStorage.getItem('role');
   }
 
-  // ✅ Check login
+
   isLoggedIn(): boolean {
     return !!localStorage.getItem('role');
   }
 
-  // ✅ Logout
   logout() {
     localStorage.removeItem('role');
   }

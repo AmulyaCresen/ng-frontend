@@ -1,9 +1,11 @@
 import { Component } from '@angular/core';
-
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 @Component({
   selector: 'app-forgot-password',
-  imports: [],
+  standalone: true,
+  imports: [CommonModule, RouterModule],
   templateUrl: './forgot-password.html',
-  styleUrl: './forgot-password.css',
+  styleUrls: ['./forgot-password.css']
 })
 export class ForgotPassword {}

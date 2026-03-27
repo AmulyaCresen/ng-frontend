@@ -11,6 +11,6 @@ export const routes: Routes = [
   { path: 'admin', component: AdminDashboard },
   { path: 'manager', component: ManagerDashboard },
   { path: 'employee', component: EmployeeDashboard},
-
+  {path: '', component:Login},
   { path: 'forgot-password', component: ForgotPassword }
 ];

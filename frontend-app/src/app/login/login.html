@@ -1,85 +1,73 @@
-<div class="wrapper">
+<div class="container">
 
-  <div class="login-container">
-
-    <div class="header">
-      <h1>Welcome Back</h1>
-      <p>Sign in to your account</p>
+  <!-- LEFT SIDE -->
+  <div class="left">
+    <div class="branding">
+      <h1>Leave Management System</h1>
+      <p>
+        Streamline employee leave requests, approvals, and reporting —
+        all in one place.
+      </p>
     </div>
+  </div>
 
-    <form #loginForm="ngForm" (ngSubmit)="login()">
+  <!-- RIGHT SIDE -->
+  <div class="right">
+    <div class="login-card">
 
-      <!-- EMAIL -->
-      <div class="input-group">
-        <input
-          type="email"
-          [(ngModel)]="email"
-          name="email"
-          required
-          email
-          #emailRef="ngModel"
-          placeholder=" " />
-        <label>Email</label>
+      <h2>Welcome Back</h2>
+      <p class="subtext">Please login to continue</p>
 
-        <div class="error" *ngIf="emailRef.invalid && emailRef.touched">
-          Valid email is required
+      <form (ngSubmit)="login()">
+
+        <!-- EMAIL -->
+        <div class="input-group">
+          <input type="email"
+                 required
+                 [(ngModel)]="email"
+                 name="email"
+                 (input)="clearError()" />
+          <label>Email</label>
         </div>
-      </div>
 
-      <!-- PASSWORD -->
-      <div class="input-group">
-        <input
-          type="password"
-          [(ngModel)]="password"
-          name="password"
-          required
-          minlength="3"
-          #passwordRef="ngModel"
-          placeholder=" " />
-        <label>Password</label>
-
-        <div class="error" *ngIf="passwordRef.invalid && passwordRef.touched">
-          Password is required
+        <!-- PASSWORD -->
+        <div class="input-group">
+          <input type="password"
+                 required
+                 [(ngModel)]="password"
+                 name="password"
+                 (input)="clearError()" />
+          <label>Password</label>
         </div>
-      </div>
 
-      <!-- ROLE -->
-      <div class="input-group">
-        <select
-          [(ngModel)]="role"
-          name="role"
-          required
-          #roleRef="ngModel">
-
-          <option value="" disabled selected></option>
-          <option value="ADMIN">Admin</option>
-          <option value="MANAGER">Manager</option>
-          <option value="EMPLOYEE">Employee</option>
-        </select>
-        <label>Role</label>
-
-        <div class="error" *ngIf="roleRef.invalid && roleRef.touched">
-          Please select a role
+        <!-- ROLE -->
+        <div class="input-group">
+          <select [(ngModel)]="role"
+                  name="role"
+                  required
+                  (change)="clearError()">
+            <option value="" disabled selected></option>
+            <option value="ADMIN">Admin</option>
+            <option value="MANAGER">Manager</option>
+            <option value="EMPLOYEE">Employee</option>
+          </select>
+          <label>Role</label>
         </div>
-      </div>
 
-      <!-- LOGIN ERROR -->
-      <div class="error" *ngIf="errorMessage">
-        {{ errorMessage }}
-      </div>
+        <!-- ✅ ERROR (MOVED HERE) -->
+        <div class="error" *ngIf="errorMessage">
+          {{ errorMessage }}
+        </div>
 
-      <!-- BUTTON -->
-      <button type="submit" [disabled]="loginForm.invalid || loading">
-        <span *ngIf="!loading">Sign In</span>
-        <span *ngIf="loading">Logging in...</span>
-      </button>
+        <button type="submit">Sign In</button>
 
-    </form>
+      </form>
 
-    <div class="footer">
-      <a routerLink="/forgot-password">Forgot password?</a>
+      <a routerLink="/forgot-password" class="forgot">
+        Forgot password?
+      </a>
+
     </div>
-
   </div>
 
 </div>
