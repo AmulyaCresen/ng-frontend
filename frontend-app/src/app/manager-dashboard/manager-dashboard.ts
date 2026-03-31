@@ -1,9 +1,19 @@
 import { Component } from '@angular/core';
+import { AuthService } from '../services/auth';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-manager-dashboard',
-  imports: [],
+  standalone: true,
   templateUrl: './manager-dashboard.html',
-  styleUrl: './manager-dashboard.css',
+  styleUrls: ['./manager-dashboard.css']
 })
-export class ManagerDashboard {}
+export class ManagerDashboard {
+
+  constructor(private auth: AuthService, private router: Router) {}
+
+  logout() {
+    this.auth.logout();
+    this.router.navigate(['/']);
+  }
+}

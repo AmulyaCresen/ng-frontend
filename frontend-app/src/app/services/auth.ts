@@ -1,33 +1,62 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { timeout } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
+
+export interface LoginResponse {
+  message: string;
+  token: string;
+  role: string;
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
 
-  private baseUrl = 'http://localhost:8081';
+  private baseUrl = environment.apiUrl;
+  private readonly TIMEOUT_MS = 30000;
 
   constructor(private http: HttpClient) {}
 
-  login(data: any) {
-    return this.http.post(`${this.baseUrl}/users/login`, data);
+  login(email: string, password: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.baseUrl}/auth/login`, { email, password })
+      .pipe(timeout(this.TIMEOUT_MS));
   }
 
-  setRole(role: string) {
-    localStorage.setItem('role', role);
+  forgotPassword(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/auth/forgot-password`, { email })
+      .pipe(timeout(this.TIMEOUT_MS));
+  }
+
+  resetPassword(email: string, otp: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/auth/reset-password`, { email, otp, newPassword })
+      .pipe(timeout(this.TIMEOUT_MS));
+  }
+
+  setToken(token: string): void {
+    sessionStorage.setItem('token', token);
+  }
+
+  getToken(): string | null {
+    return sessionStorage.getItem('token');
+  }
+
+  setRole(role: string): void {
+    sessionStorage.setItem('role', role);
   }
 
   getRole(): string | null {
-    return localStorage.getItem('role');
+    return sessionStorage.getItem('role');
   }
-
 
   isLoggedIn(): boolean {
-    return !!localStorage.getItem('role');
+    return !!sessionStorage.getItem('token');
   }
 
-  logout() {
-    localStorage.removeItem('role');
+  logout(): void {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('role');
   }
 }
