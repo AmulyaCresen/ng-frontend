@@ -21,7 +21,7 @@ export class AuthService {
   constructor(private http: HttpClient) {}
 
   login(email: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.baseUrl}/auth/login`, { email, password })
+    return this.http.post<LoginResponse>(`${this.baseUrl}/auth/login`, { email, password: btoa(password) })
       .pipe(timeout(this.TIMEOUT_MS));
   }
 
