@@ -1,10 +1,8 @@
-
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-
 .page-bg {
   min-height: 100vh;
   background: linear-gradient(145deg, #eef2ff 0%, #f0f9ff 50%, #faf5ff 100%);
@@ -16,7 +14,6 @@
   padding: 32px 20px;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
-
 .blob {
   position: absolute;
   border-radius: 50%;
@@ -24,7 +21,6 @@
   opacity: 0.35;
   pointer-events: none;
 }
-
 .blob-1 {
   width: 520px;
   height: 520px;
@@ -33,7 +29,6 @@
   left: -120px;
   animation: blobDrift 16s ease-in-out infinite;
 }
-
 .blob-2 {
   width: 440px;
   height: 440px;
@@ -43,7 +38,6 @@
   animation: blobDrift 16s ease-in-out infinite;
   animation-delay: -6s;
 }
-
 .blob-3 {
   width: 280px;
   height: 280px;
@@ -53,13 +47,11 @@
   animation: blobDrift 20s ease-in-out infinite;
   animation-delay: -11s;
 }
-
 @keyframes blobDrift {
   0%, 100% { transform: translateY(0px) scale(1); }
   33%       { transform: translateY(-20px) scale(1.03); }
   66%       { transform: translateY(16px) scale(0.97); }
 }
-
 .login-wrapper {
   display: flex;
   flex-direction: column;
@@ -70,17 +62,14 @@
   z-index: 1;
   animation: slideUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(36px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 .brand-section {
   text-align: center;
   margin-bottom: 28px;
 }
-
 .logo-wrap {
   display: inline-flex;
   align-items: center;
@@ -98,7 +87,6 @@
   overflow: hidden;
   padding: 10px;
 }
-
 .logo-wrap {
   display: inline-block;
   background: none;       
@@ -108,14 +96,11 @@
   width: auto;            
   height: auto;
 }
-
 .logo-img {
   max-width: 200px;       
   height: auto;           
   display: block;
 }
-
-
 .brand-name {
   font-size: 22px;
   font-weight: 700;
@@ -123,7 +108,6 @@
   letter-spacing: -0.4px;
   margin-bottom: 8px;
 }
-
 .brand-tagline {
   font-size: 13px;
   color: #64748b;
@@ -131,7 +115,6 @@
   max-width: 360px;
   margin: 0 auto;
 }
-
 .login-card {
   width: 100%;
   background: white;
@@ -143,12 +126,10 @@
     0 20px 60px rgba(37, 99, 235, 0.1),
     0 8px 24px rgba(0, 0, 0, 0.06);
 }
-
 .card-top {
   text-align: center;
   margin-bottom: 30px;
 }
-
 .card-top h2 {
   font-size: 27px;
   font-weight: 700;
@@ -156,17 +137,14 @@
   letter-spacing: -0.5px;
   margin-bottom: 6px;
 }
-
 .card-top p {
   font-size: 13px;
   color: #94a3b8;
 }
-
 .field-wrap {
   position: relative;
   margin-bottom: 20px;
 }
-
 .field-icon {
   position: absolute;
   left: 15px;
@@ -180,7 +158,6 @@
   pointer-events: none;
   z-index: 1;
 }
-
 .field-wrap input {
   width: 100%;
   padding: 17px 46px;
@@ -193,7 +170,6 @@
   transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
   font-family: inherit;
 }
-
 .field-wrap label {
   position: absolute;
   left: 44px;
@@ -207,7 +183,6 @@
   padding: 0 5px;
   border-radius: 4px;
 }
-
 .field-wrap.active label {
   top: 0;
   transform: translateY(-50%);
@@ -217,17 +192,14 @@
   background: white;
   left: 40px;
 }
-
 .field-wrap input:focus {
   border-color: #2563eb;
   background: white;
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
 }
-
 .field-wrap.active .field-icon {
   color: #2563eb;
 }
-
 .eye-btn {
   position: absolute;
   right: 14px;
@@ -244,18 +216,15 @@
   border-radius: 6px;
   transition: color 0.2s, background 0.2s;
 }
-
 .eye-btn:hover {
   color: #2563eb;
   background: rgba(37, 99, 235, 0.06);
 }
-
 .eye-btn svg {
   width: 18px;
   height: 18px;
   stroke-width: 2;
 }
-
 .error-box {
   display: flex;
   align-items: center;
@@ -269,14 +238,12 @@
   margin-bottom: 16px;
   animation: shakeError 0.38s ease;
 }
-
 .error-box svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
   stroke-width: 2;
 }
-
 @keyframes shakeError {
   0%, 100% { transform: translateX(0); }
   20%       { transform: translateX(-7px); }
@@ -284,7 +251,6 @@
   60%       { transform: translateX(-4px); }
   80%       { transform: translateX(4px); }
 }
-
 .sign-in-btn {
   width: 100%;
   padding: 15px;
@@ -309,7 +275,6 @@
   gap: 8px;
   font-family: inherit;
 }
-
 .sign-in-btn::before {
   content: '';
   position: absolute;
@@ -320,11 +285,9 @@
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
   transition: left 0.55s ease;
 }
-
 .sign-in-btn:hover::before {
   left: 100%;
 }
-
 .sign-in-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
   transform: translateY(-2px);
@@ -332,34 +295,28 @@
     0 8px 28px rgba(37, 99, 235, 0.5),
     0 2px 6px rgba(0, 0, 0, 0.3);
 }
-
 .sign-in-btn:active:not(:disabled) {
   transform: translateY(0);
   box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
 }
-
 .sign-in-btn:disabled {
   opacity: 0.72;
   cursor: not-allowed;
 }
-
 .spinner-wrap {
   display: flex;
   align-items: center;
   gap: 9px;
 }
-
 .spinner {
   width: 18px;
   height: 18px;
   animation: spin 0.75s linear infinite;
 }
-
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
-
 .forgot-link {
   display: block;
   text-align: center;
@@ -368,34 +325,28 @@
   text-decoration: none;
   transition: color 0.2s;
 }
-
 .forgot-link:hover {
   color: #1d4ed8;
   text-decoration: underline;
 }
-
 @media (max-width: 480px) {
   .login-card {
     padding: 30px 22px 24px;
     border-radius: 20px;
   }
-
   .brand-name {
     font-size: 18px;
   }
-
   .card-top h2 {
     font-size: 23px;
   }
-
   .logo-wrap {
     width: 64px;
     height: 64px;
     border-radius: 18px;
   }
-
   .logo-svg {
     width: 38px;
     height: 38px;
   }
-}
+}

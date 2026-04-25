@@ -1,15 +1,250 @@
-<div class="dashboard">
-
-  <div class="header">
-    <h2>Employee Dashboard</h2>
-    <button (click)="logout()">Logout</button>
+﻿<div class="layout">
+  <div class="page-loader" *ngIf="pageLoading">
+    <div class="page-loader-backdrop"></div>
+    <div class="page-loader-content">
+      <div class="page-spinner"></div>
+      <div class="page-loader-text">Processing...</div>
+    </div>
   </div>
-
-  <p class="welcome">Welcome Employee</p>
-
-  <div class="cards">
-    <div class="card">Apply Leave</div>
-    <div class="card">My Requests</div>
+  
+  <aside class="sidebar" [style.width.px]="sidebarWidth">
+    <div class="sidebar-resizer" (mousedown)="startResize($event)"></div>
+    <div class="sidebar-brand">
+      <img src="assets/logo.png" alt="Logo" class="sidebar-logo" />
+      <span class="brand-name" *ngIf="sidebarExpanded">LMS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item" *ngFor="let menu of filteredMenus"
+           [class.active]="activeMenu === menu.menuKey"
+           (click)="onMenuChange(menu.menuKey)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ng-container [ngSwitch]="menu.menuKey">
+            <ng-container *ngSwitchCase="'home'"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></ng-container>
+            <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+            <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
+          </ng-container>
+        </svg>
+        <span *ngIf="sidebarExpanded">{{ menu.menuLabel }}</span>
+      </div>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <h2>{{ activeMenuLabel }}</h2>
+      <div class="profile-menu">
+        <div class="profile-btn" (click)="showProfile = !showProfile">
+          <svg class="profile-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span class="profile-name">{{ fullName }}</span>
+          <span>▾</span>
+        </div>
+        <div class="profile-dropdown" *ngIf="showProfile">
+          <div class="dropdown-item logout" (click)="logout()">Logout</div>
+        </div>
+      </div>
+    </header>
+    <div class="content">
+      <ng-container *ngIf="activeMenu === 'home'">
+        <div class="welcome-banner">
+          <h1>Welcome, {{ fullName }} 👋</h1>
+          <p>You are logged in as <strong>{{ role }}</strong></p>
+          <span class="tagline">Your leave management, all in one place.</span>
+        </div>
+        <div class="quick-actions-heading">Quick Actions</div>
+        <div class="quick-actions">
+          <div class="qa-card" *ngFor="let menu of quickActionMenus" (click)="onMenuChange(menu.menuKey)">
+            <svg class="qa-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <ng-container [ngSwitch]="menu.menuKey">
+                <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+                <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
+              </ng-container>
+            </svg>
+            <div class="qa-label">{{ menu.menuLabel }}</div>
+          </div>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="activeMenu === 'apply'">
+        <div class="leave-tabs">
+          <button class="leave-tab" [class.active-tab]="applyLeaveTab === 'apply'" [disabled]="pageLoading" (click)="onTabChange('apply')">
+            Apply Leave
+          </button>
+          <button class="leave-tab" [class.active-tab]="applyLeaveTab === 'history'" [disabled]="pageLoading" (click)="onTabChange('history')">
+            Leave History
+          </button>
+        </div>
+        <ng-container *ngIf="applyLeaveTab === 'apply'">
+          <div class="leave-balance-banner">
+            <div class="balance-card" *ngFor="let b of leaveBalances; let i = index">
+              <div class="balance-name">{{ b.leaveName }}</div>
+              <div class="balance-bar-wrap">
+                <div class="balance-bar" [style.width.%]="(b.usedDays / b.maxDays) * 100"
+                     [class.balance-bar-warn]="leaveAvailable[i].available <= 2"></div>
+              </div>
+              <div class="balance-numbers">
+                <span class="balance-used">{{ b.usedDays }} used</span>
+                <span class="balance-sep">/</span>
+                <span class="balance-max">{{ b.maxDays }} days</span>
+                <span class="balance-remaining" [class.balance-low]="leaveAvailable[i].available <= 2">{{ leaveAvailable[i].available }} left</span>
+              </div>
+              <div class="balance-pending" *ngIf="leaveAvailable[i].pendingDays > 0">{{ leaveAvailable[i].pendingDays }} pending</div>
+            </div>
+          </div>
+          <div class="section-header">
+            <span></span>
+            <button class="add-btn" [disabled]="pageLoading" (click)="openLeaveForm()">
+              + Apply Leave
+            </button>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="applyLeaveTab === 'history'">
+          <div class="table-wrap">
+            <ag-grid-angular
+              [rowData]="flattenedLeaves"
+              [columnDefs]="myLeaveColDefs"
+              [defaultColDef]="defaultColDef"
+              [pagination]="true"
+              [paginationPageSize]="10"
+              [animateRows]="true"
+              style="width: 100%; height: calc(100vh - 220px);">
+            </ag-grid-angular>
+          </div>
+        </ng-container>
+      </ng-container>
+    </div>
   </div>
+</div>
 
+<app-trail-modal
+  *ngIf="showTrailModal"
+  [leave]="trailLeave"
+  (close)="closeTrailModal()">
+</app-trail-modal>
+<!-- Apply Leave Modal -->
+<div class="modal-overlay" *ngIf="showLeaveForm" (click)="closeLeaveForm()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Apply for Leave</h3>
+      <button class="close-btn" (click)="closeLeaveForm()">&#x2715;</button>
+    </div>
+    <form (ngSubmit)="submitLeaveForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Type *</label>
+          <select [(ngModel)]="leaveFormType" name="leaveType" (ngModelChange)="buildLeaveDays()">
+            <option value="" disabled>Select leave type</option>
+            <option *ngFor="let lt of availableLeaveTypes" [value]="lt.leaveName">{{ lt.leaveName }} (max {{ lt.maxDays }} days)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Manager *</label>
+          <select [(ngModel)]="leaveFormManagerEmail" name="managerEmail">
+            <option value="" disabled>Select manager</option>
+            <option *ngFor="let m of managers" [value]="m.email">{{ m.fullName }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>From Date *</label>
+          <input type="date" [(ngModel)]="leaveFormFromDate" name="fromDate" [min]="today" (ngModelChange)="buildLeaveDays()" />
+        </div>
+        <div class="field">
+          <label>To Date *</label>
+          <input type="date" [(ngModel)]="leaveFormToDate" name="toDate" [min]="leaveFormFromDate || today" (ngModelChange)="buildLeaveDays()" />
+        </div>
+      </div>
+      <div *ngIf="leaveDays.length > 0" class="day-config-section">
+        <div class="day-config-row" *ngFor="let d of leaveDays">
+          <span class="day-config-date">{{ d.date }}</span>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="d.dayType === 'FULL_DAY'" (click)="d.dayType = 'FULL_DAY'; d.halfDaySession = ''; validateLeaveDays()">Full Day</button>
+            <button type="button" [class.active]="d.dayType === 'HALF_DAY'" (click)="d.dayType = 'HALF_DAY'; validateLeaveDays()">Half Day</button>
+          </div>
+          <div class="day-type-toggle" *ngIf="d.dayType === 'HALF_DAY'">
+            <button type="button" [class.active]="d.halfDaySession === 'MORNING'" (click)="d.halfDaySession = 'MORNING'; validateLeaveDays()">Morning</button>
+            <button type="button" [class.active]="d.halfDaySession === 'AFTERNOON'" (click)="d.halfDaySession = 'AFTERNOON'; validateLeaveDays()">Afternoon</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Reason *</label>
+          <input type="text" [(ngModel)]="leaveFormReason" name="reason" placeholder="Enter reason" />
+        </div>
+        <div class="field" *ngIf="leaveFormFromDate && leaveFormToDate">
+          <label>Duration</label>
+          <input type="text" [value]="leaveDays.length > 0 ? totalLeaveDays + ' day(s)' : '0 day(s)'" readonly />
+        </div>
+      </div>
+      <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeLeaveForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0 || !leaveFormManagerEmail">
+          Submit Application
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showEditLeaveForm" (click)="closeEditLeaveForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Leave Application</h3>
+      <button class="close-btn" (click)="closeEditLeaveForm()">&#x2715;</button>
+    </div>
+    <form (ngSubmit)="submitEditLeaveForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Type *</label>
+          <select [(ngModel)]="editLeaveForm.leaveType" name="editLeaveType">
+            <option value="" disabled>Select leave type</option>
+            <option *ngFor="let lt of availableLeaveTypes" [value]="lt.leaveName">{{ lt.leaveName }} (max {{ lt.maxDays }} days)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Day Type *</label>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="editLeaveForm.dayType === 'FULL_DAY'" (click)="editLeaveForm.dayType = 'FULL_DAY'; editLeaveForm.halfDaySession = ''; onEditLeaveDatesChange()">Full Day</button>
+            <button type="button" [class.active]="editLeaveForm.dayType === 'HALF_DAY'" (click)="editLeaveForm.dayType = 'HALF_DAY'; onEditLeaveDatesChange()">Half Day</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Date *</label>
+          <input type="date" [(ngModel)]="editLeaveForm.fromDate" name="editFromDate" [min]="today" (ngModelChange)="onEditLeaveDatesChange()" />
+        </div>
+        <div class="field" *ngIf="editLeaveForm.dayType === 'HALF_DAY'">
+          <label>Session *</label>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="editLeaveForm.halfDaySession === 'MORNING'" (click)="editLeaveForm.halfDaySession = 'MORNING'; onEditHalfDaySessionChange()">Morning</button>
+            <button type="button" [class.active]="editLeaveForm.halfDaySession === 'AFTERNOON'" (click)="editLeaveForm.halfDaySession = 'AFTERNOON'; onEditHalfDaySessionChange()">Afternoon</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Reason *</label>
+          <input type="text" [(ngModel)]="editLeaveForm.reason" name="editReason" placeholder="Enter reason" />
+        </div>
+      </div>
+      <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeEditLeaveForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showDeleteLeaveConfirm" (click)="closeDeleteLeaveConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Delete this <strong>{{ deletingLeave?.leaveType }}</strong> leave application? This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeDeleteLeaveConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" [disabled]="pageLoading" (click)="confirmDeleteLeave()">
+        Delete
+      </button>
+    </div>
+  </div>
 </div>

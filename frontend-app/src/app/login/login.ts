@@ -5,9 +5,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../services/auth';
 import { TimeoutError } from 'rxjs';
-
+import { ToastService } from '../services/toast.service';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -16,7 +15,6 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   styleUrls: ['./login.css']
 })
 export class Login {
-
   email = '';
   password = '';
   errorMessage = '';
@@ -24,36 +22,35 @@ export class Login {
   emailFocused = false;
   passwordFocused = false;
   showPassword = false;
-
-  constructor(private router: Router, private authService: AuthService) {}
-
+  constructor(private router: Router, private authService: AuthService, private toast: ToastService) {}
   togglePassword() {
     this.showPassword = !this.showPassword;
   }
-
   private validate(): string | null {
     if (!this.email.trim() || !this.password) return 'Email and password are required.';
     if (!EMAIL_REGEX.test(this.email.trim())) return 'Please enter a valid email address.';
     return null;
   }
-
   login() {
     this.errorMessage = '';
     const validationError = this.validate();
     if (validationError) { this.errorMessage = validationError; return; }
-
     this.loading = true;
     this.authService.login(this.email.trim(), this.password).subscribe({
       next: (response) => {
         this.loading = false;
         this.authService.setToken(response.token);
         this.authService.setRole(response.role);
+        this.authService.setFullName(response.fullName);
+        this.authService.setEmail(response.email);
+        this.authService.setGender(response.gender || '');
         const routeMap: Record<string, string> = {
           ADMIN: '/admin',
           MANAGER: '/manager',
           EMPLOYEE: '/employee',
         };
         this.router.navigate([routeMap[response.role] ?? '/']);
+        this.toast.show('Login successful! Welcome ' + response.fullName, 'success');
       },
       error: (err) => {
         this.loading = false;
@@ -61,17 +58,19 @@ export class Login {
         if (err instanceof TimeoutError) {
           this.errorMessage = 'Request timed out. Please try again.';
         } else if (err.status === 401) {
-          this.errorMessage = 'Invalid email or password.';
-        } else if (err.status === 403) {
-          this.errorMessage = 'Account is disabled. Please contact admin.';
+          const reason = err.error?.detail || err.error?.message || '';
+          if (reason.toLowerCase().includes('disabled')) {
+            this.errorMessage = 'Account is disabled. Please contact admin.';
+          } else {
+            this.errorMessage = 'Wrong email or password. Please try again.';
+          }
         } else {
           this.errorMessage = 'Something went wrong. Please try again.';
         }
       }
     });
   }
-
   clearError() {
     this.errorMessage = '';
   }
-}
+}

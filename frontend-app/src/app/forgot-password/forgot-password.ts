@@ -4,7 +4,6 @@ import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth';
 import { TimeoutError } from 'rxjs';
-
 @Component({
   selector: 'app-forgot-password',
   standalone: true,
@@ -13,16 +12,13 @@ import { TimeoutError } from 'rxjs';
   styleUrls: ['./forgot-password.css']
 })
 export class ForgotPassword {
-
   email = '';
   emailFocused = false;
   loading = false;
   otpSent = false;
-
   otp = '';
   otpFocused = false;
   resending = false;
-
   newPassword = '';
   confirmPassword = '';
   newPasswordFocused = false;
@@ -30,21 +26,15 @@ export class ForgotPassword {
   showNewPassword = false;
   showConfirmPassword = false;
   resettingPassword = false;
-
   passwordReset = false;
   errorMessage = '';
-
   constructor(private authService: AuthService, private router: Router) {}
-
   getOtp() {
     this.errorMessage = '';
     const trimmed = this.email.trim();
-
     if (!trimmed) { this.errorMessage = 'Please enter your email address.'; return; }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmed)) { this.errorMessage = 'Please enter a valid email address.'; return; }
-
     this.loading = true;
     this.authService.forgotPassword(trimmed).subscribe({
       next: () => {
@@ -56,7 +46,6 @@ export class ForgotPassword {
         if (err.status === 404) {
           this.errorMessage = 'No account found with this email address.';
         } else if (err instanceof TimeoutError || err.status === 0 || err.status === 502 || err.status === 504) {
-          // OTP is already saved to DB and email is sending in background — proceed to OTP entry
           this.otpSent = true;
         } else {
           this.errorMessage = err.error?.message || 'Something went wrong. Please try again.';
@@ -64,7 +53,6 @@ export class ForgotPassword {
       }
     });
   }
-
   changeEmail() {
     this.otpSent = false;
     this.otp = '';
@@ -72,7 +60,6 @@ export class ForgotPassword {
     this.confirmPassword = '';
     this.errorMessage = '';
   }
-
   resend() {
     this.resending = true;
     this.errorMessage = '';
@@ -81,24 +68,20 @@ export class ForgotPassword {
       error: (err) => {
         this.resending = false;
         if (err instanceof TimeoutError || err.status === 0 || err.status === 502 || err.status === 504) {
-          // OTP resent in background — no error to show
         } else {
           this.errorMessage = err.error?.message || 'Failed to resend OTP. Please try again.';
         }
       }
     });
   }
-
   resetPassword() {
     this.errorMessage = '';
-
     if (!this.otp.trim()) { this.errorMessage = 'Please enter the OTP sent to your email.'; return; }
     if (!this.newPassword) { this.errorMessage = 'Please enter a new password.'; return; }
     if (this.newPassword.length < 6) { this.errorMessage = 'Password must be at least 6 characters.'; return; }
     if (this.newPassword !== this.confirmPassword) { this.errorMessage = 'Passwords do not match.'; return; }
-
     this.resettingPassword = true;
-    this.authService.resetPassword(this.email.trim(), this.otp.trim(), this.newPassword).subscribe({
+    this.authService.resetPassword(this.email.trim(), this.otp.trim(), btoa(this.newPassword)).subscribe({
       next: () => {
         this.resettingPassword = false;
         this.passwordReset = true;
@@ -108,7 +91,6 @@ export class ForgotPassword {
         if (err.status === 400) {
           this.errorMessage = 'Invalid or expired OTP. Please request a new one.';
         } else if (err instanceof TimeoutError || err.status === 0 || err.status === 502 || err.status === 504) {
-          // Password was reset on backend before gateway cut the connection
           this.passwordReset = true;
         } else {
           this.errorMessage = err.error?.message || 'Something went wrong. Please try again.';
@@ -116,4 +98,4 @@ export class ForgotPassword {
       }
     });
   }
-}
+}

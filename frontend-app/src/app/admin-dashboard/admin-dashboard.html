@@ -1,16 +1,749 @@
-<div class="dashboard">
-
-  <div class="header">
-    <h2>Admin Dashboard</h2>
-    <button (click)="logout()">Logout</button>
+﻿<div class="layout">
+  <div class="page-loader" *ngIf="pageLoading">
+    <div class="page-loader-backdrop"></div>
+    <div class="page-loader-content">
+      <div class="page-spinner"></div>
+      <div class="page-loader-text">Processing...</div>
+    </div>
   </div>
+  
+  <aside class="sidebar" [style.width.px]="sidebarWidth">
+    <div class="sidebar-resizer" (mousedown)="startResize($event)"></div>
+    <div class="sidebar-brand">
+      <img src="assets/logo.png" alt="Logo" class="sidebar-logo" />
+      <span class="brand-name" *ngIf="sidebarExpanded">LMS Admin</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item" *ngFor="let menu of filteredMenus"
+           [class.active]="activeMenu === menu.menuKey"
+           (click)="onMenuChange(menu.menuKey)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ng-container [ngSwitch]="menu.menuKey">
+            <ng-container *ngSwitchCase="'home'"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></ng-container>
+            <ng-container *ngSwitchCase="'employees'"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></ng-container>
+            <ng-container *ngSwitchCase="'mytasks'"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></ng-container>
+            <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+            <ng-container *ngSwitchCase="'leavemanagement'"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></ng-container>
+            <ng-container *ngSwitchCase="'audit'"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></ng-container>
+            <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
+          </ng-container>
+        </svg>
+        <span *ngIf="sidebarExpanded">{{ menu.menuLabel }}</span>
+      </div>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h2>{{ activeMenuLabel }}</h2>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-stats">
+          <div class="stat-chip">
+            <span class="stat-icon">👥</span>
+            <span class="stat-label">Total Users</span>
+            <span class="stat-value">{{ stats.totalUsers }}</span>
+          </div>
+          <div class="stat-chip approved">
+            <span class="stat-icon">✅</span>
+            <span class="stat-label">Active</span>
+            <span class="stat-value">{{ stats.activeUsers }}</span>
+          </div>
+          <div class="stat-chip pending">
+            <span class="stat-icon">⏳</span>
+            <span class="stat-label">Inactive</span>
+            <span class="stat-value">{{ stats.inactiveUsers }}</span>
+          </div>
+        </div>
+        <div class="profile-menu">
+          <div class="profile-btn" (click)="showProfile = !showProfile">
+            <svg class="profile-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span class="profile-name">{{ fullName }}</span>
+            <span>▾</span>
+          </div>
+          <div class="profile-dropdown" *ngIf="showProfile">
+            <div class="dropdown-item logout" (click)="logout()">Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="content">
+      <ng-container *ngIf="activeMenu === 'home'">
+        <div class="welcome-banner">
+          <div class="welcome-banner-text">
+            <h1>Welcome, {{ fullName }} 👋</h1>
+            <p>You are logged in as <strong>{{ role }}</strong></p>
+            <span class="tagline">Your leave management, all in one place.</span>
+          </div>
+        </div>
+        <div class="quick-actions-heading">Quick Actions</div>
+        <div class="quick-actions">
+          <div class="qa-card" *ngFor="let menu of quickActionMenus" (click)="onMenuChange(menu.menuKey)">
+            <svg class="qa-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <ng-container [ngSwitch]="menu.menuKey">
+                <ng-container *ngSwitchCase="'employees'"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></ng-container>
+                <ng-container *ngSwitchCase="'mytasks'"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></ng-container>
+                <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+                <ng-container *ngSwitchCase="'leavemanagement'"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></ng-container>
+                <ng-container *ngSwitchCase="'audit'"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></ng-container>
+                <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
+              </ng-container>
+            </svg>
+            <div class="qa-label">{{ menu.menuLabel }}</div>
+          </div>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="activeMenu === 'employees'">
+        <div class="section-header">
+          <input class="search-input" type="text" [(ngModel)]="searchQuery" placeholder="🔍 Search by name, email, role..." />
+          <button class="add-btn" [disabled]="pageLoading" (click)="openForm()">
+            + Create User
+          </button>
+        </div>
+        <div class="table-wrap">
+          <ag-grid-angular
+            [rowData]="filteredUsers"
+            [columnDefs]="colDefs"
+            [defaultColDef]="defaultColDef"
+            [pagination]="true"
+            [paginationPageSize]="10"
+            [paginationPageSizeSelector]="[10, 20, 50]"
+            [animateRows]="true"
+            style="width: 100%; height: calc(100vh - 220px);"
+            (gridReady)="onGridReady($event)">
+          </ag-grid-angular>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="activeMenu === 'mytasks'">
+        <div class="leave-tabs">
+          <button class="leave-tab" [class.active-tab]="myTasksTab === 'pending'" [disabled]="tabLoading" (click)="onTaskTabChange('pending')">Pending Tasks</button>
+          <button class="leave-tab" [class.active-tab]="myTasksTab === 'logged'" [disabled]="tabLoading" (click)="onTaskTabChange('logged')">Logged Leaves</button>
+        </div>
+        <div class="table-wrap" [style.display]="myTasksTab === 'pending' ? 'block' : 'none'">
+          <ag-grid-angular
+            [rowData]="pendingLeaves"
+            [columnDefs]="pendingLeaveColDefs"
+            [defaultColDef]="defaultColDef"
+            [pagination]="true"
+            [paginationPageSize]="10"
+            [animateRows]="true"
+            (gridReady)="onPendingGridReady($event)"
+            style="width: 100%; height: calc(100vh - 220px);">
+          </ag-grid-angular>
+        </div>
+        <div class="table-wrap" [style.display]="myTasksTab === 'logged' ? 'block' : 'none'">
+          <ag-grid-angular
+            [rowData]="loggedLeaves"
+            [columnDefs]="loggedLeaveColDefs"
+            [defaultColDef]="defaultColDef"
+            [pagination]="true"
+            [paginationPageSize]="10"
+            [animateRows]="true"
+            (gridReady)="onLoggedGridReady($event)"
+            style="width: 100%; height: calc(100vh - 220px);">
+          </ag-grid-angular>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="activeMenu === 'apply'">
+        <div class="leave-tabs">
+          <button class="leave-tab" [class.active-tab]="applyLeaveTab === 'apply'" (click)="applyLeaveTab = 'apply'">Apply Leave</button>
+          <button class="leave-tab" [class.active-tab]="applyLeaveTab === 'history'" (click)="applyLeaveTab = 'history'">Leave History</button>
+        </div>
+        <ng-container *ngIf="applyLeaveTab === 'apply'">
+          <div class="leave-balance-banner">
+            <div class="balance-card" *ngFor="let b of leaveBalances; let i = index">
+              <div class="balance-name">{{ b.leaveName }}</div>
+              <div class="balance-bar-wrap">
+                <div class="balance-bar" [style.width.%]="(b.usedDays / b.maxDays) * 100"
+                     [class.balance-bar-warn]="leaveAvailable[i].available <= 2"></div>
+              </div>
+              <div class="balance-numbers">
+                <span class="balance-used">{{ b.usedDays }} used</span>
+                <span class="balance-sep">/</span>
+                <span class="balance-max">{{ b.maxDays }} days</span>
+                <span class="balance-remaining" [class.balance-low]="leaveAvailable[i].available <= 2">{{ leaveAvailable[i].available }} left</span>
+              </div>
+              <div class="balance-pending" *ngIf="leaveAvailable[i].pendingDays > 0">{{ leaveAvailable[i].pendingDays }} pending</div>
+            </div>
+          </div>
+          <div class="section-header">
+            <span></span>
+            <button class="add-btn" (click)="openLeaveForm()">+ Apply Leave</button>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="applyLeaveTab === 'history'">
+          <div class="table-wrap">
+            <ag-grid-angular
+              [rowData]="flattenedLeaves"
+              [columnDefs]="myLeaveColDefs"
+              [defaultColDef]="defaultColDef"
+              [pagination]="true"
+              [paginationPageSize]="10"
+              [animateRows]="true"
+              style="width: 100%; height: calc(100vh - 220px);">
+            </ag-grid-angular>
+          </div>
+        </ng-container>
+      </ng-container>
+      <ng-container *ngIf="activeMenu === 'leavemanagement'">
+        <div class="leave-tabs">
+          <button class="leave-tab" [class.active-tab]="leaveManagementTab === 'types'" (click)="leaveManagementTab = 'types'">Leave Management</button>
+          <button class="leave-tab" [class.active-tab]="leaveManagementTab === 'holidays'" (click)="leaveManagementTab = 'holidays'">Holiday Management</button>
+        </div>
+        <ng-container *ngIf="leaveManagementTab === 'types'">
+          <div class="section-header">
+            <span></span>
+            <button class="add-btn" (click)="openLeaveTypeForm()">+ Add Leave Type</button>
+          </div>
+          <div class="table-wrap">
+            <ag-grid-angular
+              [rowData]="leaveTypes"
+              [columnDefs]="leaveTypeColDefs"
+              [defaultColDef]="defaultColDef"
+              [pagination]="true"
+              [paginationPageSize]="10"
+              [animateRows]="true"
+              style="width: 100%; height: calc(100vh - 260px);">
+            </ag-grid-angular>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="leaveManagementTab === 'holidays'">
+          <div class="section-header">
+            <span></span>
+            <button class="add-btn" (click)="openHolidayForm()">+ Add Holiday</button>
+          </div>
+          <div class="table-wrap">
+            <ag-grid-angular
+              [rowData]="holidays"
+              [columnDefs]="holidayColDefs"
+              [defaultColDef]="defaultColDef"
+              [pagination]="true"
+              [paginationPageSize]="10"
+              [animateRows]="true"
+              style="width: 100%; height: calc(100vh - 260px);">
+            </ag-grid-angular>
+          </div>
+        </ng-container>
+      </ng-container>
 
-  <p class="welcome">Welcome Admin </p>
+      <ng-container *ngIf="activeMenu === 'audit'">
+        <app-audit-trail [userEmail]="fullName"></app-audit-trail>
+      </ng-container>
 
-  <div class="cards">
-    <div class="card">Manage Users</div>
-    <div class="card">Approve Leaves</div>
-    <div class="card">Reports</div>
+    </div>
   </div>
-
+</div>
+<div class="modal-overlay" *ngIf="showActionWizard" (click)="closeActionWizard()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Review Leave &mdash; {{ actionLeave?.emailId }}</h3>
+      <button class="close-btn" (click)="closeActionWizard()">&#x2715;</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <button class="wizard-approve-btn" (click)="openApproveAllConfirm()">Approve All</button>
+      <button class="wizard-reject-btn" (click)="openRejectAllConfirm()">Reject All</button>
+    </div>
+    <div class="day-config-section">
+      <div class="day-config-row" *ngFor="let d of dayDecisions" style="flex-wrap:wrap;gap:8px;align-items:flex-start;padding:12px 16px">
+        <div style="min-width:110px">
+          <div style="font-size:13px;font-weight:600;color:#1e293b">{{ d.date }}</div>
+          <div style="font-size:12px;color:#94a3b8">{{ d.dayType === 'HALF_DAY' ? 'Half Day' : 'Full Day' }}</div>
+        </div>
+        <div class="field" style="min-width:140px;margin:0">
+          <label style="font-size:12px;margin-bottom:4px">Decision</label>
+          <select [(ngModel)]="d.status" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;width:100%">
+            <option value="APPROVED">Approve</option>
+            <option value="REJECTED">Reject</option>
+          </select>
+        </div>
+        <div class="field" *ngIf="d.status === 'REJECTED'" style="flex:1;min-width:160px;margin:0">
+          <label style="font-size:12px;margin-bottom:4px">Reason <span style="color:#ef4444">*</span></label>
+          <input type="text" [(ngModel)]="d.reason" placeholder="Enter reason" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box" />
+        </div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:16px">
+      <button class="cancel-btn" (click)="closeActionWizard()">Cancel</button>
+      <button class="submit-btn" [disabled]="pageLoading" (click)="submitActionWizard()">
+        Submit Review
+      </button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showApproveAllConfirm" (click)="closeApproveAllConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Approve <strong>all {{ dayDecisions.length }} day(s)</strong> for <strong>{{ actionLeave?.emailId }}</strong>?</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeApproveAllConfirm()">Cancel</button>
+      <button class="submit-btn" (click)="confirmApproveAll()">Yes, Approve All</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showRejectAllConfirm" (click)="closeRejectAllConfirm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Reject All Days</h3>
+      <button class="close-btn" (click)="closeRejectAllConfirm()">&#x2715;</button>
+    </div>
+    <p style="font-size:14px;color:#475569;margin-bottom:16px">Rejecting all <strong>{{ dayDecisions.length }} day(s)</strong> for <strong>{{ actionLeave?.emailId }}</strong>. Please provide a reason.</p>
+    <div class="form-row">
+      <div class="field">
+        <label>Reason for Rejection <span style="color:#ef4444">*</span></label>
+        <input type="text" [(ngModel)]="rejectAllReason" placeholder="Enter rejection reason" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="cancel-btn" (click)="closeRejectAllConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" (click)="confirmRejectAll()">Yes, Reject All</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showRejectModal" (click)="closeRejectModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Reject Leave</h3>
+      <button class="close-btn" (click)="closeRejectModal()">&#x2715;</button>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Reason for Rejection <span style="color:#ef4444">*</span></label>
+        <input type="text" [(ngModel)]="rejectReason" name="rejectReason" placeholder="Enter rejection reason" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="cancel-btn" (click)="closeRejectModal()">Cancel</button>
+      <button class="delete-confirm-btn" [disabled]="pageLoading" (click)="confirmReject()">
+        Confirm Reject
+      </button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showLeaveForm" (click)="closeLeaveForm()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Apply for Leave</h3>
+      <button class="close-btn" (click)="closeLeaveForm()">&#x2715;</button>
+    </div>
+    <form (ngSubmit)="submitLeaveForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Type *</label>
+          <select [(ngModel)]="leaveFormType" name="leaveType" (ngModelChange)="buildLeaveDays()">
+            <option value="" disabled>Select leave type</option>
+            <option *ngFor="let lt of availableLeaveTypes" [value]="lt.leaveName">{{ lt.leaveName }} (max {{ lt.maxDays }} days)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Manager *</label>
+          <select [(ngModel)]="leaveFormManagerEmail" name="managerEmail">
+            <option value="" disabled>Select manager</option>
+            <option *ngFor="let m of managers" [value]="m.email">{{ m.fullName }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>From Date *</label>
+          <input type="date" [(ngModel)]="leaveFormFromDate" name="fromDate" [min]="today" (ngModelChange)="buildLeaveDays()" />
+        </div>
+        <div class="field">
+          <label>To Date *</label>
+          <input type="date" [(ngModel)]="leaveFormToDate" name="toDate" [min]="leaveFormFromDate || today" (ngModelChange)="buildLeaveDays()" />
+        </div>
+      </div>
+      <div *ngIf="leaveDays.length > 0" class="day-config-section">
+        <div class="day-config-row" *ngFor="let d of leaveDays">
+          <span class="day-config-date">{{ d.date }}</span>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="d.dayType === 'FULL_DAY'" (click)="d.dayType = 'FULL_DAY'; d.halfDaySession = ''; validateLeaveDays()">Full Day</button>
+            <button type="button" [class.active]="d.dayType === 'HALF_DAY'" (click)="d.dayType = 'HALF_DAY'; validateLeaveDays()">Half Day</button>
+          </div>
+          <div class="day-type-toggle" *ngIf="d.dayType === 'HALF_DAY'">
+            <button type="button" [class.active]="d.halfDaySession === 'MORNING'" (click)="d.halfDaySession = 'MORNING'; validateLeaveDays()">Morning</button>
+            <button type="button" [class.active]="d.halfDaySession === 'AFTERNOON'" (click)="d.halfDaySession = 'AFTERNOON'; validateLeaveDays()">Afternoon</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Reason *</label>
+          <input type="text" [(ngModel)]="leaveFormReason" name="reason" placeholder="Enter reason" />
+        </div>
+        <div class="field" *ngIf="leaveFormFromDate && leaveFormToDate">
+          <label>Duration</label>
+          <input type="text" [value]="leaveDays.length > 0 ? totalLeaveDays + ' day(s)' : '0 day(s)'" readonly />
+        </div>
+      </div>
+      <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeLeaveForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0 || !leaveFormManagerEmail">
+          Submit Application
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showEditLeaveForm" (click)="closeEditLeaveForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Leave Application</h3>
+      <button class="close-btn" (click)="closeEditLeaveForm()">&#x2715;</button>
+    </div>
+    <form (ngSubmit)="submitEditLeaveForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Type *</label>
+          <select [(ngModel)]="editLeaveForm.leaveType" name="editLeaveType" (ngModelChange)="onEditLeaveDatesChange()">
+            <option value="" disabled>Select leave type</option>
+            <option *ngFor="let lt of availableLeaveTypes" [value]="lt.leaveName">{{ lt.leaveName }} (max {{ lt.maxDays }} days)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Day Type *</label>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="editLeaveForm.dayType === 'FULL_DAY'" (click)="editLeaveForm.dayType = 'FULL_DAY'; editLeaveForm.halfDaySession = ''; onEditLeaveDatesChange()">Full Day</button>
+            <button type="button" [class.active]="editLeaveForm.dayType === 'HALF_DAY'" (click)="editLeaveForm.dayType = 'HALF_DAY'; onEditLeaveDatesChange()">Half Day</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row" *ngIf="editLeaveForm.dayType === 'FULL_DAY'">
+        <div class="field">
+          <label>From Date *</label>
+          <input type="date" [(ngModel)]="editLeaveForm.fromDate" name="editFromDate" [min]="today" (ngModelChange)="onEditLeaveDatesChange()" />
+        </div>
+        <div class="field">
+          <label>To Date *</label>
+          <input type="date" [(ngModel)]="editLeaveForm.toDate" name="editToDate" [min]="editLeaveForm.fromDate || today" (ngModelChange)="onEditLeaveDatesChange()" />
+        </div>
+        <div class="field">
+          <label>Duration</label>
+          <input type="text" [value]="editLeaveDayCount > 0 ? editLeaveDayCount + ' day(s)' : '—'" readonly />
+        </div>
+      </div>
+      <div class="form-row" *ngIf="editLeaveForm.dayType === 'HALF_DAY'">
+        <div class="field">
+          <label>Date *</label>
+          <input type="date" [(ngModel)]="editLeaveForm.fromDate" name="editFromDateHalf" [min]="today" (ngModelChange)="onEditLeaveDatesChange()" />
+        </div>
+        <div class="field">
+          <label>Session *</label>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="editLeaveForm.halfDaySession === 'MORNING'" (click)="editLeaveForm.halfDaySession = 'MORNING'; onEditHalfDaySessionChange()">Morning</button>
+            <button type="button" [class.active]="editLeaveForm.halfDaySession === 'AFTERNOON'" (click)="editLeaveForm.halfDaySession = 'AFTERNOON'; onEditHalfDaySessionChange()">Afternoon</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Reason *</label>
+          <input type="text" [(ngModel)]="editLeaveForm.reason" name="editReason" placeholder="Enter reason" />
+        </div>
+        <div class="field">
+          <label>Comments</label>
+          <input type="text" [(ngModel)]="editLeaveForm.comments" name="editComments" placeholder="Optional" />
+        </div>
+      </div>
+      <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeEditLeaveForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="leaveLoading || !!leaveDayError">
+          {{ leaveLoading ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showDeleteLeaveConfirm" (click)="closeDeleteLeaveConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Delete this <strong>{{ deletingLeave?.leaveType }}</strong> leave application? This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeDeleteLeaveConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" (click)="confirmDeleteLeave()">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showHolidayForm" (click)="closeHolidayForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Add Holiday</h3>
+      <button class="close-btn" (click)="closeHolidayForm()">✕</button>
+    </div>
+    <form (ngSubmit)="submitHolidayForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Holiday Name *</label>
+          <input type="text" [(ngModel)]="holidayForm.name" name="holidayName" placeholder="e.g. Republic Day" />
+        </div>
+        <div class="field">
+          <label>Date *</label>
+          <input type="date" [(ngModel)]="holidayForm.date" name="holidayDate" [min]="today" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeHolidayForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="holidayLoading">{{ holidayLoading ? 'Saving...' : 'Add Holiday' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showEditHolidayForm" (click)="closeEditHolidayForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Holiday</h3>
+      <button class="close-btn" (click)="closeEditHolidayForm()">✕</button>
+    </div>
+    <form (ngSubmit)="submitEditHolidayForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Holiday Name *</label>
+          <input type="text" [(ngModel)]="editHolidayForm.name" name="editHolidayName" />
+        </div>
+        <div class="field">
+          <label>Date *</label>
+          <input type="date" [(ngModel)]="editHolidayForm.date" name="editHolidayDate" [min]="today" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeEditHolidayForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="holidayLoading">{{ holidayLoading ? 'Saving...' : 'Save Changes' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showDeleteHolidayConfirm" (click)="closeDeleteHolidayConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Delete <strong>{{ deletingHoliday?.name }}</strong>? This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeDeleteHolidayConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" (click)="confirmDeleteHoliday()">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showEditLeaveTypeForm" (click)="closeEditLeaveTypeForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Leave Type</h3>
+      <button class="close-btn" (click)="closeEditLeaveTypeForm()">✕</button>
+    </div>
+    <form (ngSubmit)="submitEditLeaveTypeForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Name *</label>
+          <input type="text" [(ngModel)]="editLeaveTypeForm.leaveName" name="editLeaveName" (blur)="validateEditLeaveName()" [class.field-error]="editLeaveTypeFieldErrors['leaveName']" />
+          <span class="inline-error" *ngIf="editLeaveTypeFieldErrors['leaveName']">{{ editLeaveTypeFieldErrors['leaveName'] }}</span>
+        </div>
+        <div class="field">
+          <label>Unique Name *</label>
+          <input type="text" [(ngModel)]="editLeaveTypeForm.leaveUniqueName" name="editLeaveUniqueName" (blur)="validateEditLeaveUniqueName()" [class.field-error]="editLeaveTypeFieldErrors['leaveUniqueName']" />
+          <span class="inline-error" *ngIf="editLeaveTypeFieldErrors['leaveUniqueName']">{{ editLeaveTypeFieldErrors['leaveUniqueName'] }}</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Description</label>
+          <input type="text" [(ngModel)]="editLeaveTypeForm.description" name="editDescription" />
+        </div>
+        <div class="field">
+          <label>Max Days *</label>
+          <input type="number" [(ngModel)]="editLeaveTypeForm.maxDays" name="editMaxDays" min="1" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeEditLeaveTypeForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="leaveTypeLoading">
+          {{ leaveTypeLoading ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showDeleteLeaveTypeConfirm" (click)="closeDeleteLeaveTypeConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Delete <strong>{{ deletingLeaveType?.leaveName }}</strong>? This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeDeleteLeaveTypeConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" (click)="confirmDeleteLeaveType()">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showLeaveTypeForm" (click)="closeLeaveTypeForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Add Leave Type</h3>
+      <button class="close-btn" (click)="closeLeaveTypeForm()">✕</button>
+    </div>
+    <form (ngSubmit)="submitLeaveTypeForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Name *</label>
+          <input type="text" [(ngModel)]="leaveTypeForm.leaveName" name="leaveName" placeholder="e.g. Sick Leave" />
+        </div>
+        <div class="field">
+          <label>Unique Name *</label>
+          <input type="text" [(ngModel)]="leaveTypeForm.leaveUniqueName" name="leaveUniqueName" placeholder="e.g. SICK" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Description</label>
+          <input type="text" [(ngModel)]="leaveTypeForm.description" name="description" placeholder="Brief description" />
+        </div>
+        <div class="field">
+          <label>Max Days *</label>
+          <input type="number" [(ngModel)]="leaveTypeForm.maxDays" name="maxDays" placeholder="e.g. 10" min="1" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeLeaveTypeForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="leaveTypeLoading">
+          {{ leaveTypeLoading ? 'Saving...' : 'Add Leave Type' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<app-trail-modal
+  *ngIf="showTrailModal"
+  [leave]="trailLeave"
+  (close)="closeTrailModal()">
+</app-trail-modal>
+<div class="modal-overlay" *ngIf="showDeleteConfirm" (click)="closeDeleteConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Delete <strong>{{ deletingUser?.fullName }}</strong>? This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeDeleteConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" [disabled]="pageLoading" (click)="confirmDelete()">
+        Delete
+      </button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showForm" (click)="closeForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Create New User</h3>
+      <button class="close-btn" (click)="closeForm()">✕</button>
+    </div>
+    <div class="error-box" *ngIf="errorMessage">⚠️ {{ errorMessage }}</div>
+    <form (ngSubmit)="submitForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Username *</label>
+          <input type="text" [(ngModel)]="form.userName" name="userName" placeholder="Enter username" (blur)="validateUsername()" [class.field-error]="fieldErrors['userName']" />
+          <span class="inline-error" *ngIf="fieldErrors['userName']">{{ fieldErrors['userName'] }}</span>
+        </div>
+        <div class="field">
+          <label>Full Name *</label>
+          <input type="text" [(ngModel)]="form.fullName" name="fullName" placeholder="Enter full name" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Email *</label>
+          <input type="email" [(ngModel)]="form.email" name="email" placeholder="Enter email" (blur)="validateEmail()" [class.field-error]="fieldErrors['email']" />
+          <span class="inline-error" *ngIf="fieldErrors['email']">{{ fieldErrors['email'] }}</span>
+        </div>
+        <div class="field">
+          <label>Password *</label>
+          <input type="password" [(ngModel)]="form.password" name="password" placeholder="Enter password" (input)="validatePassword()" [class.field-error]="fieldErrors['password']" />
+          <span class="inline-error" *ngIf="fieldErrors['password']">{{ fieldErrors['password'] }}</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Role *</label>
+          <select [(ngModel)]="form.role" name="role">
+              <option value="" disabled>Select role</option>
+              <option value="EMPLOYEE">Employee</option>
+              <option value="MANAGER">Manager</option>
+            </select>
+        </div>
+        <div class="field">
+          <label>Company ID</label>
+          <input type="text" [value]="nextCompanyId" name="companyId" readonly placeholder="Auto-generated" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Gender *</label>
+          <select [(ngModel)]="form.gender" name="gender">
+            <option value="" disabled>Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field toggle-field">
+          <label>Active</label>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="form.active" name="active" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading">
+          Create User
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showEditForm" (click)="closeEditForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit User — {{ editingUser?.companyId }}</h3>
+      <button class="close-btn" (click)="closeEditForm()">✕</button>
+    </div>
+    <div class="error-box" *ngIf="errorMessage">⚠️ {{ errorMessage }}</div>
+    <form (ngSubmit)="submitEditForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Username *</label>
+          <input type="text" [(ngModel)]="editForm.userName" name="editUserName" placeholder="Enter username" />
+        </div>
+        <div class="field">
+          <label>Full Name *</label>
+          <input type="text" [(ngModel)]="editForm.fullName" name="editFullName" placeholder="Enter full name" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Role *</label>
+          <select [(ngModel)]="editForm.role" name="editRole">
+            <option value="" disabled>Select role</option>
+            <option value="ADMIN">Admin</option>
+            <option value="EMPLOYEE">Employee</option>
+            <option value="MANAGER">Manager</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Gender *</label>
+          <select [(ngModel)]="editForm.gender" name="editGender">
+            <option value="" disabled>Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field toggle-field">
+          <label>Active</label>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="editForm.active" name="editActive" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeEditForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
 </div>

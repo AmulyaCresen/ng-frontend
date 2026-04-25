@@ -5,11 +5,9 @@ import { ManagerDashboard } from './manager-dashboard/manager-dashboard';
 import { EmployeeDashboard } from './employee-dashboard/employee-dashboard';
 import { ForgotPassword } from './forgot-password/forgot-password';
 import { authGuard } from './guards/auth-guard';
-
 export const routes: Routes = [
   { path: '', component: Login },
   { path: 'forgot-password', component: ForgotPassword },
-
   {
     path: 'admin',
     component: AdminDashboard,
@@ -28,7 +26,5 @@ export const routes: Routes = [
     canActivate: [authGuard],
     data: { role: 'EMPLOYEE' }
   },
-
   { path: '**', redirectTo: '' }
-];
-
+];

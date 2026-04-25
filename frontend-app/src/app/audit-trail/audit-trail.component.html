@@ -1,0 +1,22 @@
+<div class="section-header">
+  <input class="search-input" type="text" [(ngModel)]="auditSearchQuery" placeholder="Search by employee, leave type, status..." />
+  <button class="add-btn" (click)="refresh()">Refresh</button>
+</div>
+<div class="table-wrap">
+  <ag-grid-angular
+    [rowData]="filteredLeaves"
+    [columnDefs]="auditColDefs"
+    [defaultColDef]="defaultColDef"
+    [pagination]="true"
+    [paginationPageSize]="15"
+    [animateRows]="true"
+    [rowHeight]="52"
+    style="width: 100%; height: calc(100vh - 260px);">
+  </ag-grid-angular>
+</div>
+
+<app-trail-modal
+  *ngIf="showTrailModal"
+  [leave]="trailLeave"
+  (close)="closeTrailModal()">
+</app-trail-modal>

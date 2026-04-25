@@ -1,12 +1,372 @@
-/* Global styles */
-*, *::before, *::after {
+﻿*, *::before, *::after {
   box-sizing: border-box;
 }
-
 html, body {
   margin: 0;
   padding: 0;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #475569;
+}
+.audit-meta strong { color: #1e293b; }
+.trail-timeline { display: flex; flex-direction: column; gap: 0; }
+.trail-item {
+  display: flex;
+  gap: 14px;
+  position: relative;
+  padding-bottom: 20px;
+}
+.trail-item:last-child { padding-bottom: 0; }
+.trail-item::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 22px;
+  bottom: 0;
+  width: 2px;
+  background: #e2e8f0;
+}
+.trail-item:last-child::before { display: none; }
+.trail-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 2px;
+  background: #cbd5e1;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #cbd5e1;
+}
+.trail-applied .trail-dot { background: #6366f1; box-shadow: 0 0 0 2px #6366f1; }
+.trail-approved .trail-dot { background: #16a34a; box-shadow: 0 0 0 2px #16a34a; }
+.trail-rejected .trail-dot { background: #dc2626; box-shadow: 0 0 0 2px #dc2626; }
+.trail-partial .trail-dot  { background: #ea580c; box-shadow: 0 0 0 2px #ea580c; }
+.trail-content { flex: 1; }
+.trail-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.trail-sub { font-size: 12px; color: #64748b; }
+.trail-reason { font-size: 12px; color: #dc2626; margin-top: 4px; }
+
+.audit-table-wrap {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow: auto;
+  max-height: calc(100vh - 240px);
+}
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.audit-table thead tr {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+.audit-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.audit-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+.audit-table tbody tr:hover { background: #f8fafc; }
+.audit-table tbody tr:last-child td { border-bottom: none; }
+.audit-employee { display: flex; align-items: center; gap: 10px; }
+.audit-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.audit-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+.audit-email { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+.audit-leave-type {
+  background: #ede9fe; color: #6d28d9;
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 12px; font-weight: 500;
+}
+.audit-date { color: #475569; font-size: 13px; white-space: nowrap; }
+.audit-trail-count {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #94a3b8;
+  background: #f1f5f9; padding: 3px 10px; border-radius: 12px;
+}
+.audit-trail-count.has-trail { background: #eff6ff; color: #2563eb; }
+.audit-view-btn {
+  padding: 5px 14px;
+  background: #eef2ff; color: #6366f1;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px; cursor: pointer;
+  font-size: 12px; font-weight: 500;
+  transition: 0.2s; white-space: nowrap;
+}
+.audit-view-btn:hover { background: #e0e7ff; border-color: #a5b4fc; }
+.audit-empty { text-align: center; padding: 48px 0; color: #94a3b8; font-size: 14px; }
+
+/* ── Trail Modal ── */
+.audit-trail-modal {
+  max-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.trail-modal-title { display: flex; align-items: center; gap: 12px; }
+.trail-modal-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: white; font-size: 16px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.trail-modal-title h3 { margin: 0; font-size: 18px; color: #1e293b; }
+.trail-modal-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.trail-summary-cards {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 20px; flex-shrink: 0;
+}
+.trail-summary-card {
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 8px; padding: 10px 14px;
+  flex: 1; min-width: 120px;
+}
+.trail-summary-reason { flex: 1.5; min-width: 160px; }
+.trail-summary-status { flex: 1.5; min-width: 160px; }
+.trail-summary-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; white-space: nowrap; }
+.trail-summary-value { font-size: 13px; font-weight: 600; color: #1e293b; }
+.trail-summary-value .status-approved,
+.trail-summary-value .status-rejected,
+.trail-summary-value .status-partial,
+.trail-summary-value .status-pending,
+.trail-summary-value .status-manager-approved { white-space: nowrap; display: inline-flex; align-items: center; }
+.trail-section-label {
+  font-size: 11px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin-bottom: 14px; padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+}
+/* Timeline — scrollable */
+.trail-timeline {
+  display: flex; flex-direction: column;
+  overflow-y: auto; max-height: 260px;
+  padding-right: 4px; margin-bottom: 4px;
+}
+.trail-timeline::-webkit-scrollbar { width: 5px; }
+.trail-timeline::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+.trail-timeline::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+/* Activity card */
+.trail-activity-card { display: flex; gap: 0; }
+.trail-activity-left {
+  display: flex; flex-direction: column; align-items: center;
+  width: 32px; flex-shrink: 0; margin-right: 12px;
+}
+.trail-activity-dot {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid white; margin-top: 14px;
+  box-shadow: 0 0 0 2px #cbd5e1;
+  background: #94a3b8;
+}
+.dot-applied  { background: #6366f1; box-shadow: 0 0 0 2px #a5b4fc; }
+.dot-approved { background: #16a34a; box-shadow: 0 0 0 2px #86efac; }
+.dot-rejected { background: #dc2626; box-shadow: 0 0 0 2px #fca5a5; }
+.dot-partial  { background: #ea580c; box-shadow: 0 0 0 2px #fdba74; }
+.dot-pending  { background: #d97706; box-shadow: 0 0 0 2px #fcd34d; }
+.trail-activity-line { flex: 1; width: 2px; background: #e2e8f0; margin: 4px 0; min-height: 12px; }
+.trail-activity-body {
+  flex: 1; background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+}
+.trail-activity-applied .trail-activity-body  { border-left: 3px solid #6366f1; background: #fafafe; }
+.trail-activity-approved .trail-activity-body { border-left: 3px solid #16a34a; background: #f0fdf4; }
+.trail-activity-rejected .trail-activity-body { border-left: 3px solid #dc2626; background: #fef2f2; }
+.trail-activity-partial .trail-activity-body  { border-left: 3px solid #ea580c; background: #fff7ed; }
+.trail-activity-pending .trail-activity-body  { border-left: 3px solid #d97706; background: #fffbeb; }
+.trail-activity-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px;
+}
+.trail-activity-title { font-size: 13px; font-weight: 700; color: #1e293b; }
+.trail-activity-stage-badge {
+  font-size: 11px; font-weight: 600; padding: 2px 10px;
+  border-radius: 20px; white-space: nowrap;
+}
+.badge-applied  { background: #ede9fe; color: #6d28d9; }
+.badge-approved { background: #dcfce7; color: #15803d; }
+.badge-rejected { background: #fee2e2; color: #dc2626; }
+.badge-partial  { background: #ffedd5; color: #c2410c; }
+.badge-pending  { background: #fef9c3; color: #a16207; }
+.trail-activity-meta { display: flex; gap: 20px; flex-wrap: wrap; }
+.trail-meta-item { display: flex; flex-direction: column; gap: 2px; }
+.trail-meta-label { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
+.trail-meta-value { font-size: 12px; font-weight: 500; color: #334155; }
+.trail-activity-reason {
+  margin-top: 8px; padding: 6px 10px;
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;
+  font-size: 12px; color: #dc2626; display: flex; gap: 8px; align-items: flex-start;
+}
+.trail-activity-reason .trail-meta-label { color: #dc2626; }
+.trail-empty { color: #94a3b8; font-size: 13px; padding: 16px 0; text-align: center; }
+.trail-day-table { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+.trail-day-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 2fr;
+  padding: 9px 14px; border-bottom: 1px solid #f1f5f9;
+  font-size: 13px; align-items: center; gap: 8px;
+}
+.trail-day-row:last-child { border-bottom: none; }
+.trail-day-header {
+  background: #f8fafc; font-size: 11px; font-weight: 600;
+  color: #64748b; text-transform: uppercase; letter-spacing: 0.4px;
+}
+.trail-day-date { font-weight: 500; color: #1e293b; }
+.trail-day-reason { color: #dc2626; font-size: 12px; }
+
+.audit-leave-type-badge {
+  background: #ede9fe; color: #6d28d9;
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 12px; font-weight: 500;
+}
+
+.trail-timeline {
+  display: flex; flex-direction: column;
+  overflow-y: auto; max-height: 420px;
+  padding-right: 4px; margin-bottom: 4px;
+}
+.trail-activity-body {
+  flex: 1; border: 1px solid #e2e8f0;
+  border-radius: 10px; margin-bottom: 10px; overflow: hidden;
+  padding: 0;
+}
+.trail-activity-applied .trail-activity-body  { border-left: 3px solid #6366f1; background: unset; }
+.trail-activity-approved .trail-activity-body { border-left: 3px solid #16a34a; background: unset; }
+.trail-activity-rejected .trail-activity-body { border-left: 3px solid #dc2626; background: unset; }
+.trail-activity-partial .trail-activity-body  { border-left: 3px solid #ea580c; background: unset; }
+.trail-activity-pending .trail-activity-body  { border-left: 3px solid #d97706; background: unset; }
+
+.trail-accordion-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer; user-select: none; gap: 8px;
+  transition: background 0.15s;
+}
+.trail-activity-applied .trail-accordion-header  { background: #fafafe; }
+.trail-activity-approved .trail-accordion-header { background: #f0fdf4; }
+.trail-activity-rejected .trail-accordion-header { background: #fef2f2; }
+.trail-activity-partial .trail-accordion-header  { background: #fff7ed; }
+.trail-activity-pending .trail-accordion-header  { background: #fffbeb; }
+.trail-accordion-header:hover { filter: brightness(0.97); }
+
+.trail-accordion-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; flex-wrap: wrap; }
+.trail-accordion-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.trail-accordion-date { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+
+.trail-expand-btn {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid #cbd5e1; background: white;
+  color: #64748b; font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: 0.2s; flex-shrink: 0; line-height: 1; padding: 0;
+}
+.trail-expand-btn:hover { background: #f1f5f9; border-color: #94a3b8; color: #1e293b; }
+.trail-expand-btn.expanded { background: #6366f1; border-color: #6366f1; color: white; }
+
+.trail-accordion-detail {
+  padding: 12px 14px 14px; border-top: 1px solid #e2e8f0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.trail-activity-applied .trail-accordion-detail  { background: #fafafe; }
+.trail-activity-approved .trail-accordion-detail { background: #f0fdf4; }
+.trail-activity-rejected .trail-accordion-detail { background: #fef2f2; }
+.trail-activity-partial .trail-accordion-detail  { background: #fff7ed; }
+.trail-activity-pending .trail-accordion-detail  { background: #fffbeb; }
+
+.trail-activity-card { display: flex; gap: 0; }
+.trail-activity-left {
+  display: flex; flex-direction: column; align-items: center;
+  width: 32px; flex-shrink: 0; margin-right: 12px;
+}
+.trail-activity-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  margin-top: 16px; background: #94a3b8; border: 2px solid #fff;
+  box-shadow: 0 0 0 2px #cbd5e1;
+}
+.dot-applied, .dot-approved, .dot-rejected, .dot-partial, .dot-pending {
+  background: #94a3b8 !important;
+  box-shadow: 0 0 0 2px #cbd5e1 !important;
+}
+.trail-activity-line { flex: 1; width: 2px; background: #e2e8f0; margin: 4px 0; min-height: 12px; }
+
+.trail-activity-body {
+  flex: 1; border: 1px solid #e2e8f0; border-left: 3px solid #e2e8f0;
+  border-radius: 10px; margin-bottom: 10px; overflow: hidden;
+}
+.trail-activity-applied .trail-activity-body,
+.trail-activity-approved .trail-activity-body,
+.trail-activity-rejected .trail-activity-body,
+.trail-activity-partial .trail-activity-body,
+.trail-activity-pending .trail-activity-body {
+  border-left: 3px solid #e2e8f0 !important;
+}
+
+.trail-accordion-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer; user-select: none; gap: 8px;
+  background: #f8fafc; transition: background 0.15s;
+}
+.trail-activity-applied .trail-accordion-header,
+.trail-activity-approved .trail-accordion-header,
+.trail-activity-rejected .trail-accordion-header,
+.trail-activity-partial .trail-accordion-header,
+.trail-activity-pending .trail-accordion-header {
+  background: #f8fafc !important;
+}
+.trail-accordion-header:hover { background: #f1f5f9 !important; }
+
+.trail-accordion-detail {
+  padding: 12px 14px 14px; border-top: 1px solid #e2e8f0;
+  background: #f8fafc; display: flex; flex-direction: column; gap: 10px;
+}
+.trail-activity-applied .trail-accordion-detail,
+.trail-activity-approved .trail-accordion-detail,
+.trail-activity-rejected .trail-accordion-detail,
+.trail-activity-partial .trail-accordion-detail,
+.trail-activity-pending .trail-accordion-detail {
+  background: #f8fafc !important;
+}
+
+.trail-accordion-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.trail-accordion-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.trail-accordion-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; flex-wrap: wrap; }
+.trail-accordion-right { display: flex; align-items: center; flex-shrink: 0; }
+.trail-timestamp {
+  font-size: 11px; color: #64748b; margin-top: 3px;
+  padding: 0 2px; letter-spacing: 0.2px;
 }
