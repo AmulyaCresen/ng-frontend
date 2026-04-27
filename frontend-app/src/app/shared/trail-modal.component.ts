@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { TrailHelper } from '../services/trail-helper';
 import { Leave, LeaveService } from '../services/leave.service';
 import { UserService } from '../services/user';
+import { CacheService } from '../services/cache.service';
 
 @Component({
   selector: 'app-trail-modal',
@@ -208,25 +209,48 @@ export class TrailModalComponent implements OnChanges {
   leaveDuration = '';
   leaveReason = '';
   private nameMap = new Map<string, string>();
+  private static leaveCache = new Map<number, Leave>();
+  private lastLeaveId: number | null = null;
 
-  constructor(public trailHelper: TrailHelper, private userService: UserService, private leaveService: LeaveService) {
-    this.userService.getAllUsers().subscribe({
-      next: (users) => users.forEach(u => this.nameMap.set(u.email, u.fullName)),
-      error: () => {}
-    });
+  constructor(public trailHelper: TrailHelper, private userService: UserService, private leaveService: LeaveService, private cacheService: CacheService) {
+    const cachedUsers = this.cacheService.getUsers();
+    if (cachedUsers) {
+      cachedUsers.forEach((u: any) => this.nameMap.set(u.email, u.fullName));
+    } else {
+      this.userService.getAllUsers().subscribe({
+        next: (users) => {
+          users.forEach(u => this.nameMap.set(u.email, u.fullName));
+          this.cacheService.setUsers(users);
+        },
+        error: () => {}
+      });
+    }
   }
 
   ngOnChanges() {
     this.expanded.clear();
-    // If the leave has no trail data (e.g. logged leave record), fetch the full leave by ID
-    if (this.leave?.id && (!this.leave.trail || this.leave.trail.length === 0)) {
-      this.leaveService.getLeaveById(this.leave.id).subscribe({
-        next: (full) => this.applyLeave(full),
-        error: () => this.applyLeave(this.leave!)
-      });
-    } else {
-      this.applyLeave(this.leave);
+    
+    if (!this.leave?.id) {
+      return;
     }
+
+    // Prevent duplicate processing for the same leave
+    if (this.lastLeaveId === this.leave.id) {
+      return;
+    }
+    
+    this.lastLeaveId = this.leave.id;
+    
+    // Check cache first
+    if (TrailModalComponent.leaveCache.has(this.leave.id)) {
+      const cached = TrailModalComponent.leaveCache.get(this.leave.id)!;
+      this.applyLeave(cached);
+      return;
+    }
+    
+    // Use the leave data directly (trail data should already be embedded)
+    TrailModalComponent.leaveCache.set(this.leave.id, this.leave);
+    this.applyLeave(this.leave);
   }
 
   private applyLeave(leave: Leave | null) {

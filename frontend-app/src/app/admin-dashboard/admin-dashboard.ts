@@ -492,20 +492,13 @@ export class AdminDashboard implements OnInit {
       });
     }
 
-    const cachedHolidays = this.cacheService.getHolidays();
-    if (cachedHolidays) {
-      PUBLIC_HOLIDAYS.length = 0;
-      cachedHolidays.forEach((h: any) => PUBLIC_HOLIDAYS.push(h.date));
-    } else {
-      this.leaveService.getHolidays().subscribe({
-        next: (h) => { 
-          PUBLIC_HOLIDAYS.length = 0; 
-          h.forEach(hol => PUBLIC_HOLIDAYS.push(hol.date));
-          this.cacheService.setHolidays(h);
-        },
-        error: () => {}
-      });
-    }
+    // Load holidays - service handles PUBLIC_HOLIDAYS population
+    this.leaveService.getHolidays().subscribe({
+      next: (h) => { 
+        this.cacheService.setHolidays(h);
+      },
+      error: () => {}
+    });
 
     this.loadPendingLeaves();
     if (this.activeMenu !== 'home') this.onMenuChange(this.activeMenu);
@@ -596,11 +589,13 @@ export class AdminDashboard implements OnInit {
     });
   }
   refreshMyLeaves() {
+    this.leaveService.clearLeavesCache();
     this.leaveService.getMyLeaves().subscribe({ next: (l) => this.myLeaves = l, error: () => {} });
   }
   onPendingGridReady(e: GridReadyEvent) { this.pendingGridApi = e.api; }
   onLoggedGridReady(e: GridReadyEvent) { this.loggedGridApi = e.api; }
   loadPendingLeaves() {
+    this.leaveService.clearLeavesCache();
     this.leaveService.getPendingLeavesFor().subscribe({
       next: (l) => {
         this.pendingLeaves = l;
@@ -610,13 +605,19 @@ export class AdminDashboard implements OnInit {
     });
     this.leaveService.getAdminLoggedLeaves().subscribe({
       next: (data: any) => {
+        console.log('[Admin Dashboard] Logged leaves response:', data);
         const records: any[] = data?.approved_leaves || [];
-        this.loggedLeaves = records.map((r: any) => ({
-          id: r.leaveId, emailId: r.employeeEmail, leaveType: r.leaveType,
-          fromDate: r.fromDate, toDate: r.toDate, totalDays: r.totalDays,
-          status: r.status, createdAt: r.approvedDate,
-          reason: '', comments: '', dayType: 'FULL_DAY', halfDaySession: '', editable: false
-        } as Leave));
+        console.log('[Admin Dashboard] Processing', records.length, 'logged leaves');
+        this.loggedLeaves = records.map((r: any) => {
+          console.log('[Admin Dashboard] Leave', r.leaveId, 'trail entries:', r.trail?.length || 0);
+          return {
+            id: r.leaveId, emailId: r.employeeEmail, leaveType: r.leaveType,
+            fromDate: r.fromDate, toDate: r.toDate, totalDays: r.totalDays,
+            status: r.status, createdAt: r.approvedDate,
+            reason: r.reason || '', comments: '', dayType: 'FULL_DAY', halfDaySession: '', editable: false,
+            trail: r.trail || [], days: r.days || []
+          } as Leave;
+        });
         this.loggedGridApi?.setGridOption('rowData', this.loggedLeaves);
       },
       error: () => {}
@@ -773,8 +774,6 @@ export class AdminDashboard implements OnInit {
     this.leaveService.getHolidays().subscribe({
       next: (h) => {
         this.holidays = h;
-        PUBLIC_HOLIDAYS.length = 0;
-        h.forEach(hol => PUBLIC_HOLIDAYS.push(hol.date));
         this.cacheService.setHolidays(h);
       },
       error: () => {}

@@ -41,13 +41,18 @@ export class AuditTrailComponent implements OnInit {
       next: (users) => users.forEach(u => this.userFullNameMap.set(u.email, u.fullName)),
       error: () => {}
     });
-    this.refresh();
+    this.loadLeaves();
   }
 
-  refresh() {
+  loadLeaves() {
     const isPrivileged = this.userRole === 'ADMIN' || this.userRole === 'MANAGER';
     const obs = isPrivileged ? this.leaveService.getAllLeaves() : this.leaveService.getMyLeaves();
     obs.subscribe({ next: (l) => this.auditLeaves = l, error: () => {} });
+  }
+
+  refresh() {
+    this.leaveService.clearLeavesCache();
+    this.loadLeaves();
   }
 
   getFullName(email: string): string {

@@ -289,7 +289,7 @@
       <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
       <div class="form-actions">
         <button type="button" class="cancel-btn" (click)="closeLeaveForm()">Cancel</button>
-        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0 || !leaveFormManagerEmail">
+        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0">
           Submit Application
         </button>
       </div>
@@ -365,3 +365,5 @@
     </div>
   </div>
 </div>
+
+

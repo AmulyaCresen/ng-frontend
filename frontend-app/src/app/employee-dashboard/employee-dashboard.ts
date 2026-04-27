@@ -307,21 +307,13 @@ export class EmployeeDashboard implements OnInit {
       });
     }
 
-    // Load holidays with cache
-    const cachedHolidays = this.cacheService.getHolidays();
-    if (cachedHolidays) {
-      PUBLIC_HOLIDAYS.length = 0;
-      cachedHolidays.forEach((h: any) => PUBLIC_HOLIDAYS.push(h.date));
-    } else {
-      this.leaveService.getHolidays().subscribe({
-        next: (h) => { 
-          PUBLIC_HOLIDAYS.length = 0; 
-          h.forEach(hol => PUBLIC_HOLIDAYS.push(hol.date));
-          this.cacheService.setHolidays(h);
-        },
-        error: () => {}
-      });
-    }
+    // Load holidays - service handles PUBLIC_HOLIDAYS population
+    this.leaveService.getHolidays().subscribe({
+      next: (h) => { 
+        this.cacheService.setHolidays(h);
+      },
+      error: () => {}
+    });
 
     // Load leave types with cache
     const cachedLeaveTypes = this.cacheService.getLeaveTypes();
@@ -387,6 +379,7 @@ export class EmployeeDashboard implements OnInit {
   }
   refreshMyLeaves() {
     this.refreshLoading = true;
+    this.leaveService.clearLeavesCache();
     this.leaveService.getMyLeaves().subscribe({ 
       next: (l) => { this.myLeaves = l; this.refreshLoading = false; }, 
       error: () => { this.refreshLoading = false; } 
@@ -410,7 +403,7 @@ export class EmployeeDashboard implements OnInit {
     this.validateLeaveDays(true);
     if (this.leaveDayError) { this.toast.show(this.leaveDayError, 'error'); return; }
     if (this.leaveDays.length === 0) { this.toast.show('No working days in selected range.', 'error'); return; }
-    this.pageLoading = true;
+    this.leaveLoading = true;
     const req: CreateLeaveRequest = {
       leaveType: this.leaveFormType,
       fromDate: this.leaveDays[0].date,
@@ -424,13 +417,13 @@ export class EmployeeDashboard implements OnInit {
     };
     this.leaveService.createLeave(req).subscribe({
       next: () => {
-        this.pageLoading = false;
+        this.leaveLoading = false;
         this.closeLeaveForm();
         this.toast.show('Leave application submitted!', 'success');
         this.refreshMyLeaves();
       },
       error: (err) => {
-        this.pageLoading = false;
+        this.leaveLoading = false;
         this.toast.show(err.status === 409 ? 'You already have a leave overlapping these dates.' : 'Failed to submit leave.', 'error');
       }
     });

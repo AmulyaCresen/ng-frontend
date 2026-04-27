@@ -1,4 +1,4 @@
-﻿<div class="layout">
+<div class="layout">
   <div class="page-loader" *ngIf="pageLoading">
     <div class="page-loader-backdrop"></div>
     <div class="page-loader-content">
@@ -35,7 +35,7 @@
         <div class="profile-btn" (click)="showProfile = !showProfile">
           <svg class="profile-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span class="profile-name">{{ fullName }}</span>
-          <span>▾</span>
+          <span>?</span>
         </div>
         <div class="profile-dropdown" *ngIf="showProfile">
           <div class="dropdown-item logout" (click)="logout()">Logout</div>
@@ -45,7 +45,7 @@
     <div class="content">
       <ng-container *ngIf="activeMenu === 'home'">
         <div class="welcome-banner">
-          <h1>Welcome, {{ fullName }} 👋</h1>
+          <h1>Welcome, {{ fullName }} ??</h1>
           <p>You are logged in as <strong>{{ role }}</strong></p>
           <span class="tagline">Your leave management, all in one place.</span>
         </div>
@@ -178,7 +178,7 @@
       <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
       <div class="form-actions">
         <button type="button" class="cancel-btn" (click)="closeLeaveForm()">Cancel</button>
-        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0 || !leaveFormManagerEmail">
+        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0">
           Submit Application
         </button>
       </div>
@@ -248,3 +248,5 @@
     </div>
   </div>
 </div>
+
+

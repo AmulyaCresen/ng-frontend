@@ -55,7 +55,13 @@ export interface HolidayRequest {
 }
 export let PUBLIC_HOLIDAYS: string[] = [];
 function parseLocalDate(dateStr: string): Date {
+  if (!dateStr || typeof dateStr !== 'string') {
+    throw new Error('Invalid date string');
+  }
   const [y, m, d] = dateStr.split('-').map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) {
+    throw new Error('Invalid date format');
+  }
   return new Date(y, m - 1, d);
 }
 export function isRestrictedDate(dateStr: string): boolean {
@@ -102,6 +108,10 @@ export class LeaveService {
   private baseUrl = environment.apiUrl;
   private holidaysCache$: Observable<Holiday[]> | null = null;
   private leaveTypesCache$: Observable<LeaveType[]> | null = null;
+  private myLeavesCache$: Observable<Leave[]> | null = null;
+  private allLeavesCache$: Observable<Leave[]> | null = null;
+  private pendingLeavesCache$: Observable<Leave[]> | null = null;
+  private reviewedLeavesCache$: Observable<Leave[]> | null = null;
   
   constructor(private http: HttpClient) {}
   getLeaveById(id: number): Observable<Leave> {
@@ -110,6 +120,9 @@ export class LeaveService {
   getHolidays(): Observable<Holiday[]> {
     if (!this.holidaysCache$) {
       this.holidaysCache$ = this.http.get<Holiday[]>(`${this.baseUrl}/leave/holidays`).pipe(
+        tap(holidays => {
+          PUBLIC_HOLIDAYS = holidays.map(h => h.date);
+        }),
         shareReplay(1)
       );
     }
@@ -118,6 +131,8 @@ export class LeaveService {
 
   clearHolidaysCache(): void {
     this.holidaysCache$ = null;
+    PUBLIC_HOLIDAYS = [];
+    this.clearLeavesCache();
   }
   createHoliday(request: HolidayRequest): Observable<Holiday> {
     return this.http.post<Holiday>(`${this.baseUrl}/leave/holidays`, request).pipe(
@@ -146,35 +161,68 @@ export class LeaveService {
   clearLeaveTypesCache(): void {
     this.leaveTypesCache$ = null;
   }
+
+  clearLeavesCache(): void {
+    this.myLeavesCache$ = null;
+    this.allLeavesCache$ = null;
+    this.pendingLeavesCache$ = null;
+    this.reviewedLeavesCache$ = null;
+  }
   updateLeave(id: number, request: UpdateLeaveRequest): Observable<Leave> {
-    return this.http.put<Leave>(`${this.baseUrl}/leave/${id}`, request);
+    return this.http.put<Leave>(`${this.baseUrl}/leave/${id}`, request).pipe(
+      tap(() => this.clearLeavesCache())
+    );
   }
   deleteLeave(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/leave/${id}`);
+    return this.http.delete<void>(`${this.baseUrl}/leave/${id}`).pipe(
+      tap(() => this.clearLeavesCache())
+    );
   }
   getMyLeaves(): Observable<Leave[]> {
-    return this.http.get<Leave[]>(`${this.baseUrl}/leave/my`);
+    if (!this.myLeavesCache$) {
+      this.myLeavesCache$ = this.http.get<Leave[]>(`${this.baseUrl}/leave/my`).pipe(
+        shareReplay(1)
+      );
+    }
+    return this.myLeavesCache$;
   }
   getAllLeaves(): Observable<Leave[]> {
-    return this.http.get<Leave[]>(`${this.baseUrl}/leave/all`);
+    if (!this.allLeavesCache$) {
+      this.allLeavesCache$ = this.http.get<Leave[]>(`${this.baseUrl}/leave/all`).pipe(
+        shareReplay(1)
+      );
+    }
+    return this.allLeavesCache$;
   }
   getPendingLeavesFor(): Observable<Leave[]> {
-    return this.http.get<Leave[]>(`${this.baseUrl}/leave/pending-for`);
+    if (!this.pendingLeavesCache$) {
+      this.pendingLeavesCache$ = this.http.get<Leave[]>(`${this.baseUrl}/leave/pending-for`).pipe(
+        shareReplay(1)
+      );
+    }
+    return this.pendingLeavesCache$;
   }
 
   getReviewedLeaves(): Observable<Leave[]> {
-    return this.http.get<Leave[]>(`${this.baseUrl}/leave/reviewed-by-me`);
+    if (!this.reviewedLeavesCache$) {
+      this.reviewedLeavesCache$ = this.http.get<Leave[]>(`${this.baseUrl}/leave/reviewed-by-me`).pipe(
+        shareReplay(1)
+      );
+    }
+    return this.reviewedLeavesCache$;
   }
 
-  getManagerLoggedLeaves(): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/leave/manager-logged-leaves`);
+  getManagerLoggedLeaves(): Observable<Leave[]> {
+    return this.http.get<Leave[]>(`${this.baseUrl}/leave/manager-logged-leaves`);
   }
 
-  getAdminLoggedLeaves(): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/leave/admin-logged-leaves`);
+  getAdminLoggedLeaves(): Observable<Leave[]> {
+    return this.http.get<Leave[]>(`${this.baseUrl}/leave/admin-logged-leaves`);
   }
   partialReview(id: number, dayDecisions: { date: string; status: string; reason?: string }[]): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/leave/${id}/partial-review`, dayDecisions);
+    return this.http.post<void>(`${this.baseUrl}/leave/${id}/partial-review`, dayDecisions).pipe(
+      tap(() => this.clearLeavesCache())
+    );
   }
   checkLeaveName(name: string): Observable<boolean> {
     return this.http.get<boolean>(`${this.baseUrl}/leave/types/check-name?name=${encodeURIComponent(name)}`);
@@ -198,12 +246,18 @@ export class LeaveService {
     );
   }
   approveLeave(id: number): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/leave/${id}/approve`, {});
+    return this.http.post<void>(`${this.baseUrl}/leave/${id}/approve`, {}).pipe(
+      tap(() => this.clearLeavesCache())
+    );
   }
   rejectLeave(id: number, reason: string): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/leave/${id}/reject?reason=${encodeURIComponent(reason)}`, {});
+    return this.http.post<void>(`${this.baseUrl}/leave/${id}/reject?reason=${encodeURIComponent(reason)}`, {}).pipe(
+      tap(() => this.clearLeavesCache())
+    );
   }
   createLeave(request: CreateLeaveRequest): Observable<Leave> {
-    return this.http.post<Leave>(`${this.baseUrl}/leave/create`, request);
+    return this.http.post<Leave>(`${this.baseUrl}/leave/create`, request).pipe(
+      tap(() => this.clearLeavesCache())
+    );
   }
 }
