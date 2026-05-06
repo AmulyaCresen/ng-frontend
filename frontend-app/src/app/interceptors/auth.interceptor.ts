@@ -6,6 +6,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = authService.getToken();
   const email = authService.getEmail();
   
+  console.log('Interceptor - URL:', req.url);
+  console.log('Interceptor - Token:', token ? 'Present' : 'Missing');
+  console.log('Interceptor - Email:', email);
+  
   if (!token) {
     return next(req);
   }
@@ -17,6 +21,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   if (email) {
     headers['X-User-Email'] = email;
   }
+  
+  console.log('Interceptor - Adding headers:', headers);
   
   return next(
     req.clone({

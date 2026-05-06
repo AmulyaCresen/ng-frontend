@@ -35,7 +35,6 @@
         <div class="profile-btn" (click)="showProfile = !showProfile">
           <svg class="profile-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span class="profile-name">{{ fullName }}</span>
-          <span>?</span>
         </div>
         <div class="profile-dropdown" *ngIf="showProfile">
           <div class="dropdown-item logout" (click)="logout()">Logout</div>
@@ -45,7 +44,7 @@
     <div class="content">
       <ng-container *ngIf="activeMenu === 'home'">
         <div class="welcome-banner">
-          <h1>Welcome, {{ fullName }} ??</h1>
+          <h1>Welcome, {{ fullName }} 👋</h1>
           <p>You are logged in as <strong>{{ role }}</strong></p>
           <span class="tagline">Your leave management, all in one place.</span>
         </div>
@@ -72,6 +71,12 @@
           </button>
         </div>
         <ng-container *ngIf="applyLeaveTab === 'apply'">
+          <div class="section-header">
+            <span></span>
+            <button class="add-btn" [disabled]="pageLoading" (click)="openLeaveForm()">
+              + Apply Leave
+            </button>
+          </div>
           <div class="leave-balance-banner">
             <div class="balance-card" *ngFor="let b of leaveBalances; let i = index">
               <div class="balance-name">{{ b.leaveName }}</div>
@@ -87,12 +92,6 @@
               </div>
               <div class="balance-pending" *ngIf="leaveAvailable[i].pendingDays > 0">{{ leaveAvailable[i].pendingDays }} pending</div>
             </div>
-          </div>
-          <div class="section-header">
-            <span></span>
-            <button class="add-btn" [disabled]="pageLoading" (click)="openLeaveForm()">
-              + Apply Leave
-            </button>
           </div>
         </ng-container>
         <ng-container *ngIf="applyLeaveTab === 'history'">

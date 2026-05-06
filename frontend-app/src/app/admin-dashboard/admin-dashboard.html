@@ -40,17 +40,17 @@
       <div class="topbar-right">
         <div class="topbar-stats">
           <div class="stat-chip">
-            <span class="stat-icon">??</span>
+            <span class="stat-icon">👥</span>
             <span class="stat-label">Total Users</span>
             <span class="stat-value">{{ stats.totalUsers }}</span>
           </div>
           <div class="stat-chip approved">
-            <span class="stat-icon">?</span>
+            <span class="stat-icon">✓</span>
             <span class="stat-label">Active</span>
             <span class="stat-value">{{ stats.activeUsers }}</span>
           </div>
           <div class="stat-chip pending">
-            <span class="stat-icon">?</span>
+            <span class="stat-icon">✗</span>
             <span class="stat-label">Inactive</span>
             <span class="stat-value">{{ stats.inactiveUsers }}</span>
           </div>
@@ -59,7 +59,6 @@
           <div class="profile-btn" (click)="showProfile = !showProfile">
             <svg class="profile-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="profile-name">{{ fullName }}</span>
-            <span>?</span>
           </div>
           <div class="profile-dropdown" *ngIf="showProfile">
             <div class="dropdown-item logout" (click)="logout()">Logout</div>
@@ -71,7 +70,7 @@
       <ng-container *ngIf="activeMenu === 'home'">
         <div class="welcome-banner">
           <div class="welcome-banner-text">
-            <h1>Welcome, {{ fullName }} ??</h1>
+            <h1>Welcome, {{ fullName }} 👋</h1>
             <p>You are logged in as <strong>{{ role }}</strong></p>
             <span class="tagline">Your leave management, all in one place.</span>
           </div>
@@ -95,7 +94,7 @@
       </ng-container>
       <ng-container *ngIf="activeMenu === 'employees'">
         <div class="section-header">
-          <input class="search-input" type="text" [(ngModel)]="searchQuery" placeholder="?? Search by name, email, role..." />
+          <input class="search-input" type="text" [(ngModel)]="searchQuery" placeholder="🔍 Search by name, email, role..." />
           <button class="add-btn" [disabled]="pageLoading" (click)="openForm()">
             + Create User
           </button>
@@ -150,6 +149,10 @@
           <button class="leave-tab" [class.active-tab]="applyLeaveTab === 'history'" (click)="applyLeaveTab = 'history'">Leave History</button>
         </div>
         <ng-container *ngIf="applyLeaveTab === 'apply'">
+          <div class="section-header">
+            <span></span>
+            <button class="add-btn" (click)="openLeaveForm()">+ Apply Leave</button>
+          </div>
           <div class="leave-balance-banner">
             <div class="balance-card" *ngFor="let b of leaveBalances; let i = index">
               <div class="balance-name">{{ b.leaveName }}</div>
@@ -165,10 +168,6 @@
               </div>
               <div class="balance-pending" *ngIf="leaveAvailable[i].pendingDays > 0">{{ leaveAvailable[i].pendingDays }} pending</div>
             </div>
-          </div>
-          <div class="section-header">
-            <span></span>
-            <button class="add-btn" (click)="openLeaveForm()">+ Apply Leave</button>
           </div>
         </ng-container>
         <ng-container *ngIf="applyLeaveTab === 'history'">
@@ -418,7 +417,7 @@
         </div>
         <div class="field">
           <label>Duration</label>
-          <input type="text" [value]="editLeaveDayCount > 0 ? editLeaveDayCount + ' day(s)' : '�'" readonly />
+          <input type="text" [value]="editLeaveDayCount > 0 ? editLeaveDayCount + ' day(s)' : '�'" readonly />
         </div>
       </div>
       <div class="form-row" *ngIf="editLeaveForm.dayType === 'HALF_DAY'">
@@ -467,7 +466,7 @@
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Add Holiday</h3>
-      <button class="close-btn" (click)="closeHolidayForm()">?</button>
+      <button class="close-btn" (click)="closeHolidayForm()">×</button>
     </div>
     <form (ngSubmit)="submitHolidayForm()" novalidate>
       <div class="form-row">
@@ -491,7 +490,7 @@
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Edit Holiday</h3>
-      <button class="close-btn" (click)="closeEditHolidayForm()">?</button>
+      <button class="close-btn" (click)="closeEditHolidayForm()">×</button>
     </div>
     <form (ngSubmit)="submitEditHolidayForm()" novalidate>
       <div class="form-row">
@@ -524,7 +523,7 @@
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Edit Leave Type</h3>
-      <button class="close-btn" (click)="closeEditLeaveTypeForm()">?</button>
+      <button class="close-btn" (click)="closeEditLeaveTypeForm()">×</button>
     </div>
     <form (ngSubmit)="submitEditLeaveTypeForm()" novalidate>
       <div class="form-row">
@@ -571,7 +570,7 @@
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Add Leave Type</h3>
-      <button class="close-btn" (click)="closeLeaveTypeForm()">?</button>
+      <button class="close-btn" (click)="closeLeaveTypeForm()">×</button>
     </div>
     <form (ngSubmit)="submitLeaveTypeForm()" novalidate>
       <div class="form-row">
@@ -623,7 +622,7 @@
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Create New User</h3>
-      <button class="close-btn" (click)="closeForm()">?</button>
+      <button class="close-btn" (click)="closeForm()">×</button>
     </div>
     <div class="error-box" *ngIf="errorMessage">?? {{ errorMessage }}</div>
     <form (ngSubmit)="submitForm()" novalidate>
@@ -694,8 +693,8 @@
 <div class="modal-overlay" *ngIf="showEditForm" (click)="closeEditForm()">
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>Edit User � {{ editingUser?.companyId }}</h3>
-      <button class="close-btn" (click)="closeEditForm()">?</button>
+      <h3>Edit User � {{ editingUser?.companyId }}</h3>
+      <button class="close-btn" (click)="closeEditForm()">×</button>
     </div>
     <div class="error-box" *ngIf="errorMessage">?? {{ errorMessage }}</div>
     <form (ngSubmit)="submitEditForm()" novalidate>
