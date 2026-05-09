@@ -1,4 +1,4 @@
-<div class="layout">
+﻿<div class="layout">
   <div class="page-loader" *ngIf="pageLoading">
     <div class="page-loader-backdrop"></div>
     <div class="page-loader-content">
@@ -21,6 +21,7 @@
           <ng-container [ngSwitch]="menu.menuKey">
             <ng-container *ngSwitchCase="'home'"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></ng-container>
             <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+            <ng-container *ngSwitchCase="'todo'"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
             <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
           </ng-container>
         </svg>
@@ -44,7 +45,7 @@
     <div class="content">
       <ng-container *ngIf="activeMenu === 'home'">
         <div class="welcome-banner">
-          <h1>Welcome, {{ fullName }} 👋</h1>
+          <h1>Welcome, {{ fullName }} ??</h1>
           <p>You are logged in as <strong>{{ role }}</strong></p>
           <span class="tagline">Your leave management, all in one place.</span>
         </div>
@@ -54,6 +55,7 @@
             <svg class="qa-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <ng-container [ngSwitch]="menu.menuKey">
                 <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+                <ng-container *ngSwitchCase="'todo'"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
                 <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
               </ng-container>
             </svg>
@@ -108,7 +110,121 @@
           </div>
         </ng-container>
       </ng-container>
+      <ng-container *ngIf="activeMenu === 'todo'">
+        <div class="section-header">
+          <span></span>
+          <button class="add-btn" [disabled]="pageLoading" (click)="openTaskForm()">
+            + Add Task
+          </button>
+        </div>
+        <div class="tasks-grid" *ngIf="myTasks.length > 0">
+          <div class="task-card" *ngFor="let task of myTasks">
+            <div class="task-card-header">
+              <h3 class="task-title">{{ task.title }}</h3>
+              <div class="task-card-actions">
+                <button class="task-edit-btn" (click)="openEditTaskForm(task)" title="Edit Status">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="task-delete-btn" (click)="deleteTask(task.id!)" title="Delete">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </button>
+              </div>
+            </div>
+            <p class="task-description" *ngIf="task.description">{{ task.description }}</p>
+            <div class="task-meta">
+              <div class="task-meta-item">
+                <span class="task-meta-label">Priority</span>
+                <span [class]="'task-priority ' + (task.priority === 'HIGH' ? 'priority-high' : task.priority === 'LOW' ? 'priority-low' : 'priority-medium')">{{ task.priority }}</span>
+              </div>
+              <div class="task-meta-item">
+                <span class="task-meta-label">Status</span>
+                <span [class]="'task-status ' + (task.status === 'COMPLETED' ? 'status-approved' : task.status === 'IN_PROGRESS' ? 'status-partial' : 'status-pending')">{{ task.status === 'TODO' ? 'To Do' : task.status === 'IN_PROGRESS' ? 'In Progress' : 'Completed' }}</span>
+              </div>
+            </div>
+            <div class="task-footer">
+              <div class="task-footer-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>{{ (task.dueDate | slice:0:10) || '�' }}</span>
+              </div>
+              <div class="task-footer-item" *ngIf="task.managerEmail">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>{{ getFullName(task.managerEmail) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="empty-state" *ngIf="myTasks.length === 0">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="9" y1="9" x2="15" y2="9"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          <p>No tasks yet. Click "Add Task" to create your first task!</p>
+        </div>
+      </ng-container>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="showTaskForm" (click)="closeTaskForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Add Task</h3>
+      <button class="close-btn" (click)="closeTaskForm()">&#x2715;</button>
+    </div>
+    <form (ngSubmit)="submitTaskForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Title *</label>
+          <input type="text" [(ngModel)]="taskFormTitle" name="title" placeholder="Enter task title" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Description</label>
+          <textarea [(ngModel)]="taskFormDescription" name="description" placeholder="Enter task description" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Priority *</label>
+          <select [(ngModel)]="taskFormPriority" name="priority">
+            <option value="" disabled>Select priority</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status *</label>
+          <select [(ngModel)]="taskFormStatus" name="status">
+            <option value="" disabled>Select status</option>
+            <option value="TODO">To Do</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Due Date</label>
+          <input type="date" [(ngModel)]="taskFormDueDate" name="dueDate" [min]="today" />
+        </div>
+        <div class="field">
+          <label>Assign to Manager</label>
+          <select [(ngModel)]="taskFormManagerEmail" name="managerEmail">
+            <option value="">None</option>
+            <option *ngFor="let m of managers" [value]="m.email">{{ m.fullName }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeTaskForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading">
+          Create Task
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -175,6 +291,14 @@
         </div>
       </div>
       <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
+      <div class="form-row">
+        <div class="field">
+          <button type="button" class="add-btn" (click)="openDocumentModal()" style="width:auto;padding:8px 16px">
+            📎 Upload Documents
+          </button>
+          <span *ngIf="savedDocumentCount > 0" style="margin-left:12px;font-size:13px;color:#10b981">{{ savedDocumentCount }} document(s) saved</span>
+        </div>
+      </div>
       <div class="form-actions">
         <button type="button" class="cancel-btn" (click)="closeLeaveForm()">Cancel</button>
         <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0">
@@ -244,6 +368,108 @@
       <button class="delete-confirm-btn" [disabled]="pageLoading" (click)="confirmDeleteLeave()">
         Delete
       </button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showEditTaskForm" (click)="closeEditTaskForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Task</h3>
+      <button class="close-btn" (click)="closeEditTaskForm()">&#x2715;</button>
+    </div>
+    <div style="padding:4px 0 16px">
+      <p style="font-size:14px;font-weight:600;color:#1e293b;margin-bottom:16px">{{ editingTask?.title }}</p>
+      <div class="field">
+        <label>Status *</label>
+        <select [(ngModel)]="editTaskStatus" name="editTaskStatus">
+          <option value="TODO">To Do</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="cancel-btn" (click)="closeEditTaskForm()">Cancel</button>
+      <button type="button" class="submit-btn" [disabled]="pageLoading" (click)="submitEditTaskForm()">Save</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showDeleteTaskConfirm" (click)="closeDeleteTaskConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Are you sure you want to delete this task? This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeDeleteTaskConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" [disabled]="pageLoading" (click)="confirmDeleteTask()">
+        Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Document Upload Modal -->
+<div class="modal-overlay" *ngIf="showDocumentModal" (click)="closeDocumentModal()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Upload Documents</h3>
+      <button class="close-btn" (click)="closeDocumentModal()">&#x2715;</button>
+    </div>
+    <div style="padding:16px 0">
+      <div style="margin-bottom:16px">
+        <label class="add-btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+          <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" (change)="onDocumentSelect($event)" style="display:none" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add Files
+        </label>
+      </div>
+
+      <div *ngIf="savedDocuments.length > 0">
+        <div *ngFor="let doc of savedDocuments; let idx = index" [style]="'display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;margin-bottom:8px;' + (doc.saved ? 'background:#f0fdf4;border:1px solid #86efac' : 'background:#f8fafc;border:1px solid #e2e8f0')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" [attr.stroke]="doc.saved ? '#10b981' : '#64748b'" stroke-width="2">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+            <polyline points="13 2 13 9 20 9"/>
+          </svg>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500;color:#1e293b">{{ doc.file.name }}</div>
+            <div style="font-size:12px;color:#64748b">{{ (doc.file.size / 1024).toFixed(1) }} KB</div>
+            <div style="font-size:11px;color:#94a3b8" *ngIf="doc.uploadedAt">Uploaded: {{ doc.uploadedAt | slice:0:10 }}</div>
+            <div style="font-size:11px;color:#94a3b8" *ngIf="doc.uploadedBy">Uploaded By: {{ doc.uploadedBy }}</div>
+          </div>
+          <button *ngIf="!doc.saved" (click)="saveDocument(idx)" class="submit-btn" style="padding:6px 12px;font-size:12px" title="Save">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+          </button>
+          <button *ngIf="doc.saved" (click)="downloadDocument(doc)" class="submit-btn" style="padding:6px 12px;font-size:12px;background:#10b981" title="Download">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
+          <button (click)="deleteSavedDocument(idx)" style="background:transparent;border:none;color:#ef4444;cursor:pointer;padding:4px" title="Delete">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="savedDocuments.length === 0" style="text-align:center;padding:40px 20px;color:#94a3b8">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+          <polyline points="13 2 13 9 20 9"/>
+        </svg>
+        <p>No documents added yet. Click "Add Files" to upload.</p>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="cancel-btn" (click)="closeDocumentModal()">Close</button>
     </div>
   </div>
 </div>

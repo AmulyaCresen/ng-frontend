@@ -3,12 +3,14 @@ import { AuthService } from '../services/auth';
 import { UserService, MenuItem, User } from '../services/user';
 import { LeaveService, LeaveType, Leave, LeaveDay, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays } from '../services/leave.service';
 import { CacheService } from '../services/cache.service';
+import { TaskService, Task } from '../services/task.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, AllCommunityModule, ModuleRegistry, GridApi, GridReadyEvent } from 'ag-grid-community';
 import { ToastService } from '../services/toast.service';
+import { environment } from '../../environments/environment';
 import { TrailModalComponent } from '../shared/trail-modal.component';
 import { AuditTrailComponent } from '../audit-trail/audit-trail.component';
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -33,6 +35,8 @@ export class ManagerDashboard implements OnInit {
   myLeaves: Leave[] = [];
   pendingLeaves: Leave[] = [];
   loggedLeaves: Leave[] = [];
+  teamTasks: Task[] = [];
+  teamTaskLoading = false;
   myTasksTab: 'pending' | 'logged' = 'pending';
   private pendingGridApi: GridApi | null = null;
   private loggedGridApi: GridApi | null = null;
@@ -69,6 +73,8 @@ export class ManagerDashboard implements OnInit {
   leaveFormToDate = '';
   leaveFormReason = '';
   leaveFormManagerEmail = '';
+  showDocumentModal = false;
+  savedDocuments: { file: File; id?: number; saved: boolean; uploadedAt?: string; uploadedBy?: string }[] = [];
   managers: User[] = [];
   leaveDays: LeaveDay[] = [];
   leaveDayError = '';
@@ -85,12 +91,21 @@ export class ManagerDashboard implements OnInit {
     });
   }
   get filteredMenus(): MenuItem[] {
-    return this.menus.filter(m => m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const base = this.menus.filter(m => m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    if (!base.some(m => m.menuKey === 'teamtasks')) {
+      base.push({ id: 998, menuKey: 'teamtasks', menuLabel: 'Team Tasks', menuOrder: 99, active: true });
+    }
+    return base;
   }
   get quickActionMenus(): MenuItem[] {
-    return this.menus.filter(m => m.menuKey !== 'home' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const base = this.menus.filter(m => m.menuKey !== 'home' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    if (!base.some(m => m.menuKey === 'teamtasks')) {
+      base.push({ id: 998, menuKey: 'teamtasks', menuLabel: 'Team Tasks', menuOrder: 99, active: true });
+    }
+    return base;
   }
   get activeMenuLabel(): string {
+    if (this.activeMenu === 'teamtasks') return 'Team Tasks';
     return this.menus.find(m => m.menuKey === this.activeMenu)?.menuLabel || this.activeMenu;
   }
   private isTakenDate(iso: string): boolean {
@@ -305,6 +320,7 @@ export class ManagerDashboard implements OnInit {
     private userService: UserService,
     private leaveService: LeaveService,
     private cacheService: CacheService,
+    private taskService: TaskService,
     private router: Router,
     private toast: ToastService,
     private zone: NgZone
@@ -428,6 +444,16 @@ export class ManagerDashboard implements OnInit {
     if (menuKey === 'apply') {
       this.applyLeaveTab = 'apply';
     }
+    if (menuKey === 'teamtasks') {
+      this.loadTeamTasks();
+    }
+  }
+  loadTeamTasks() {
+    this.teamTaskLoading = true;
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => { this.teamTasks = tasks; this.teamTaskLoading = false; },
+      error: () => { this.teamTaskLoading = false; this.toast.show('Failed to load team tasks', 'error'); }
+    });
   }
   onPendingGridReady(e: GridReadyEvent) { this.pendingGridApi = e.api; }
   onLoggedGridReady(e: GridReadyEvent) { this.loggedGridApi = e.api; }
@@ -487,6 +513,7 @@ export class ManagerDashboard implements OnInit {
     this.showActionWizard = true;
   }
   closeActionWizard() { this.showActionWizard = false; this.actionLeave = null; this.dayDecisions = []; }
+
   openApproveAllConfirm() { this.showApproveAllConfirm = true; }
   closeApproveAllConfirm() { this.showApproveAllConfirm = false; }
   confirmApproveAll() {
@@ -568,9 +595,40 @@ export class ManagerDashboard implements OnInit {
     this.leaveFormManagerEmail = '';
     this.leaveDays = [];
     this.leaveDayError = '';
+    this.savedDocuments = [];
     this.showLeaveForm = true;
   }
-  closeLeaveForm() { this.showLeaveForm = false; }
+  openDocumentModal() { this.showDocumentModal = true; }
+  closeDocumentModal() { this.showDocumentModal = false; }
+  onDocumentSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      Array.from(input.files).forEach(file => {
+        this.savedDocuments.push({ file, saved: false, uploadedAt: new Date().toISOString(), uploadedBy: this.fullName });
+      });
+      input.value = '';
+    }
+  }
+  get savedDocumentCount(): number {
+    return this.savedDocuments.filter(d => d.saved).length;
+  }
+  saveDocument(index: number) {
+    this.savedDocuments[index].saved = true;
+    this.toast.show('Document saved!', 'success');
+  }
+  deleteSavedDocument(index: number) {
+    this.savedDocuments.splice(index, 1);
+    this.toast.show('Document deleted!', 'success');
+  }
+  downloadDocument(doc: { file: File }) {
+    const url = URL.createObjectURL(doc.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  closeLeaveForm() { this.showLeaveForm = false; this.savedDocuments = []; }
   submitLeaveForm() {
     if (!this.leaveFormType || !this.leaveFormFromDate || !this.leaveFormToDate || !this.leaveFormReason) {
       this.toast.show('Leave type, dates and reason are required.', 'error'); return;
@@ -591,11 +649,26 @@ export class ManagerDashboard implements OnInit {
       managerEmail: this.leaveFormManagerEmail || undefined
     };
     this.leaveService.createLeave(req).subscribe({
-      next: () => {
-        this.pageLoading = false;
-        this.closeLeaveForm();
-        this.toast.show('Leave application submitted!', 'success');
-        this.refreshMyLeaves();
+      next: (created) => {
+        const afterUpload = () => {
+          this.pageLoading = false;
+          this.closeLeaveForm();
+          this.toast.show('Leave application submitted!', 'success');
+          this.refreshMyLeaves();
+        };
+        const filesToUpload = this.savedDocuments.filter(d => d.saved).map(d => d.file);
+        if (filesToUpload.length > 0 && created?.id) {
+          let uploadedCount = 0;
+          const totalFiles = filesToUpload.length;
+          filesToUpload.forEach(file => {
+            this.leaveService.uploadLeaveDocument(created.id, file).subscribe({
+              next: () => { uploadedCount++; if (uploadedCount === totalFiles) afterUpload(); },
+              error: () => { uploadedCount++; if (uploadedCount === totalFiles) { afterUpload(); this.toast.show('Leave submitted but some documents failed to upload.', 'error'); } }
+            });
+          });
+        } else {
+          afterUpload();
+        }
       },
       error: (err) => {
         this.pageLoading = false;

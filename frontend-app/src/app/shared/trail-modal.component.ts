@@ -37,7 +37,7 @@ import { CacheService } from '../services/cache.service';
                 <span class="trail-activity-title">Leave Applied</span>
               </div>
               <div class="trail-header-right">
-                <span class="trail-accordion-date">{{ appliedAt }}</span>
+                <span class="trail-accordion-date">{{ formatDate(appliedAt) }}</span>
                 <button class="trail-expand-btn" [class.expanded]="expanded.has(-1)" type="button">{{ expanded.has(-1) ? '&minus;' : '+' }}</button>
               </div>
             </div>
@@ -84,14 +84,14 @@ import { CacheService } from '../services/cache.service';
                   [class.badge-pending]="isPending(t)">{{ statusLabel(t) }}</span>
               </div>
               <div class="trail-header-right">
-                <span class="trail-accordion-date" *ngIf="t.date">{{ t.date }}</span>
+                <span class="trail-accordion-date" *ngIf="t.date">{{ formatDate(t.date) }}</span>
                 <button class="trail-expand-btn" [class.expanded]="expanded.has(i)" type="button">{{ expanded.has(i) ? '&minus;' : '+' }}</button>
               </div>
             </div>
             <div class="trail-accordion-detail" *ngIf="expanded.has(i)">
               <div class="trail-activity-meta">
                 <div class="trail-meta-item" *ngIf="t.reviewedBy"><span class="trail-meta-label">Reviewed By</span><span class="trail-meta-value">{{ t.reviewedBy }}</span></div>
-                <div class="trail-meta-item" *ngIf="t.date"><span class="trail-meta-label">Action Time</span><span class="trail-meta-value">{{ t.date }}</span></div>
+                <div class="trail-meta-item" *ngIf="t.date"><span class="trail-meta-label">Action Date</span><span class="trail-meta-value">{{ formatDate(t.date) }}</span></div>
                 <div class="trail-meta-item"><span class="trail-meta-label">Stage</span><span class="trail-meta-value">{{ trailHelper.stageFromEntry(t) }}</span></div>
                 <div class="trail-meta-item"><span class="trail-meta-label">Status</span><span class="trail-meta-value">{{ statusLabel(t) }}</span></div>
               </div>
@@ -275,6 +275,12 @@ export class TrailModalComponent implements OnChanges {
 
   toggle(i: number) { this.expanded.has(i) ? this.expanded.delete(i) : this.expanded.add(i); }
   getName(email: string): string { return this.nameMap.get(email || '') || email || ''; }
+  formatDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const date = dateStr.slice(0, 10);
+    const time = dateStr.slice(11, 16);
+    return time ? `${date} ${time}` : date;
+  }
   approvedDays(t: any): any[] { return this.trailHelper.approvedDays(this.leave?.trail || [], t); }
   rejectedDays(t: any): any[] { return this.trailHelper.rejectedDays(this.leave?.trail || [], t); }
   isApproved(t: any): boolean { const s = t.reviewStatus || t.status || ''; return (s === 'APPROVED' || s === 'MANAGER_APPROVED'); }

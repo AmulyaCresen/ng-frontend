@@ -1,7 +1,8 @@
-import { Component, OnInit, NgZone } from '@angular/core';
+﻿import { Component, OnInit, NgZone } from '@angular/core';
 import { AuthService } from '../services/auth';
 import { UserService, MenuItem } from '../services/user';
-import { LeaveService, LeaveType, Leave, LeaveDay, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays } from '../services/leave.service';
+import { LeaveService, LeaveType, Leave, LeaveDay, LeaveFile, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays } from '../services/leave.service';
+import { TaskService, Task } from '../services/task.service';
 import { CacheService } from '../services/cache.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -49,12 +50,29 @@ export class EmployeeDashboard implements OnInit {
   showTrailModal = false;
   trailLeave: Leave | null = null;
 
+  myTasks: Task[] = [];
+  showTaskForm = false;
+  showDeleteTaskConfirm = false;
+  showEditTaskForm = false;
+  editingTask: Task | null = null;
+  editTaskStatus = '';
+  deletingTaskId: number | null = null;
+  taskFormTitle = '';
+  taskFormDescription = '';
+  taskFormPriority = '';
+  taskFormStatus = '';
+  taskFormDueDate = '';
+  taskFormManagerEmail = '';
+
   leaveFormType = '';
   leaveFormFromDate = '';
   leaveFormToDate = '';
   leaveFormReason = '';
   leaveFormManagerEmail = '';
+  leaveDocuments: File[] = [];
   managers: import('../services/user').User[] = [];
+  showDocumentModal = false;
+  savedDocuments: { file: File; id?: number; saved: boolean; uploadedAt?: string; uploadedBy?: string }[] = [];
   leaveDays: LeaveDay[] = [];
   leaveDayError = '';
   editLeaveForm: UpdateLeaveRequest = { leaveType: '', fromDate: '', toDate: '', reason: '', comments: '', dayType: 'FULL_DAY', halfDaySession: '' };
@@ -70,10 +88,20 @@ export class EmployeeDashboard implements OnInit {
     });
   }
   get filteredMenus(): MenuItem[] {
-    return this.menus.filter(m => m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const filtered = this.menus.filter(m => m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const hasTodo = filtered.some(m => m.menuKey === 'todo');
+    if (!hasTodo) {
+      filtered.push({ id: 999, menuKey: 'todo', menuLabel: 'Todo', menuOrder: 2, active: true });
+    }
+    return filtered.sort((a, b) => (a.menuOrder || 0) - (b.menuOrder || 0));
   }
   get quickActionMenus(): MenuItem[] {
-    return this.menus.filter(m => m.menuKey !== 'home' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const filtered = this.menus.filter(m => m.menuKey !== 'home' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const hasTodo = filtered.some(m => m.menuKey === 'todo');
+    if (!hasTodo) {
+      filtered.push({ id: 999, menuKey: 'todo', menuLabel: 'Todo', menuOrder: 2, active: true });
+    }
+    return filtered.sort((a, b) => (a.menuOrder || 0) - (b.menuOrder || 0));
   }
   get activeMenuLabel(): string {
     return this.menus.find(m => m.menuKey === this.activeMenu)?.menuLabel || this.activeMenu;
@@ -267,9 +295,9 @@ export class EmployeeDashboard implements OnInit {
       },
       onCellClicked: (p: any) => {
         const btn = (p.event?.target as HTMLElement)?.closest('button');
-        if (!btn || btn.hasAttribute('disabled')) return;
-        if (btn.classList.contains('edit-btn')) this.openEditLeaveForm(p.data);
-        else if (btn.classList.contains('delete-btn')) this.openDeleteLeaveConfirm(p.data);
+        if (!btn) return;
+        if (btn.classList.contains('edit-btn') && !btn.hasAttribute('disabled')) this.openEditLeaveForm(p.data);
+        else if (btn.classList.contains('delete-btn') && !btn.hasAttribute('disabled')) this.openDeleteLeaveConfirm(p.data);
       }
     },
     { headerName: 'Trail', width: 110, sortable: false, filter: false,
@@ -283,6 +311,7 @@ export class EmployeeDashboard implements OnInit {
     private auth: AuthService,
     private userService: UserService,
     private leaveService: LeaveService,
+    private taskService: TaskService,
     private cacheService: CacheService,
     private router: Router,
     private toast: ToastService,
@@ -359,6 +388,7 @@ export class EmployeeDashboard implements OnInit {
 
     // Always fetch fresh leaves (not cached)
     this.refreshMyLeaves();
+    this.refreshMyTasks();
     
     if (this.activeMenu !== 'home') this.onMenuChange(this.activeMenu);
   }
@@ -368,6 +398,9 @@ export class EmployeeDashboard implements OnInit {
     sessionStorage.setItem('emp_activeMenu', menuKey);
     if (menuKey === 'apply') {
       this.applyLeaveTab = 'apply';
+    }
+    if (menuKey === 'todo') {
+      this.refreshMyTasks();
     }
     window.setTimeout(() => this.menuLoading = false, 300);
   }
@@ -393,9 +426,88 @@ export class EmployeeDashboard implements OnInit {
     this.leaveFormManagerEmail = '';
     this.leaveDays = [];
     this.leaveDayError = '';
+    this.leaveDocuments = [];
+    this.savedDocuments = [];
     this.showLeaveForm = true;
   }
-  closeLeaveForm() { this.showLeaveForm = false; }
+
+  openDocumentModal() {
+    this.showDocumentModal = true;
+  }
+
+  closeDocumentModal() {
+    this.showDocumentModal = false;
+  }
+
+  onDocumentSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      Array.from(input.files).forEach(file => {
+        this.savedDocuments.push({ file, saved: false, uploadedAt: new Date().toISOString(), uploadedBy: this.fullName });
+      });
+      input.value = '';
+    }
+  }
+
+  get savedDocumentCount(): number {
+    return this.savedDocuments.filter(d => d.saved).length;
+  }
+
+  saveDocument(index: number) {
+    this.savedDocuments[index].saved = true;
+    this.toast.show('Document saved!', 'success');
+  }
+
+  deleteSavedDocument(index: number) {
+    const doc = this.savedDocuments[index];
+    this.savedDocuments.splice(index, 1);
+    this.toast.show('Document deleted!', 'success');
+    
+    // TODO: Backend integration
+    // if (doc.id) {
+    //   this.leaveService.deleteLeaveFile(doc.id).subscribe({
+    //     next: () => {
+    //       this.savedDocuments.splice(index, 1);
+    //       this.toast.show('Document deleted!', 'success');
+    //     },
+    //     error: () => {
+    //       this.toast.show('Failed to delete document', 'error');
+    //     }
+    //   });
+    // }
+  }
+
+  downloadDocument(doc: { file: File }) {
+    const url = URL.createObjectURL(doc.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    // TODO: Backend integration
+    // if (doc.id) {
+    //   this.leaveService.downloadLeaveFile(doc.id, doc.file.name).subscribe({
+    //     next: (blob) => {
+    //       const url = URL.createObjectURL(blob);
+    //       const a = document.createElement('a');
+    //       a.href = url;
+    //       a.download = doc.file.name;
+    //       a.click();
+    //       URL.revokeObjectURL(url);
+    //     },
+    //     error: () => {
+    //       this.toast.show('Failed to download document', 'error');
+    //     }
+    //   });
+    // }
+  }
+
+  closeLeaveForm() { 
+    this.showLeaveForm = false; 
+    this.leaveDocuments = []; 
+    this.savedDocuments = [];
+  }
   submitLeaveForm() {
     if (!this.leaveFormType || !this.leaveFormFromDate || !this.leaveFormToDate || !this.leaveFormReason) {
       this.toast.show('Leave type, dates and reason are required.', 'error'); return;
@@ -416,11 +528,39 @@ export class EmployeeDashboard implements OnInit {
       managerEmail: this.leaveFormManagerEmail || undefined
     };
     this.leaveService.createLeave(req).subscribe({
-      next: () => {
-        this.leaveLoading = false;
-        this.closeLeaveForm();
-        this.toast.show('Leave application submitted!', 'success');
-        this.refreshMyLeaves();
+      next: (created) => {
+        const filesToUpload = this.savedDocuments.filter(d => d.saved).map(d => d.file);
+        if (filesToUpload.length > 0 && created?.id) {
+          let uploadedCount = 0;
+          const totalFiles = filesToUpload.length;
+          filesToUpload.forEach(file => {
+            this.leaveService.uploadLeaveDocument(created.id, file).subscribe({
+              next: () => {
+                uploadedCount++;
+                if (uploadedCount === totalFiles) {
+                  this.leaveLoading = false;
+                  this.closeLeaveForm();
+                  this.toast.show('Leave application submitted with documents!', 'success');
+                  this.refreshMyLeaves();
+                }
+              },
+              error: () => {
+                uploadedCount++;
+                if (uploadedCount === totalFiles) {
+                  this.leaveLoading = false;
+                  this.closeLeaveForm();
+                  this.toast.show('Leave submitted but some documents failed to upload.', 'error');
+                  this.refreshMyLeaves();
+                }
+              }
+            });
+          });
+        } else {
+          this.leaveLoading = false;
+          this.closeLeaveForm();
+          this.toast.show('Leave application submitted!', 'success');
+          this.refreshMyLeaves();
+        }
       },
       error: (err) => {
         this.leaveLoading = false;
@@ -469,6 +609,115 @@ export class EmployeeDashboard implements OnInit {
   }
   openTrailModal(leave: Leave) { this.trailLeave = leave; this.showTrailModal = true; }
   closeTrailModal() { this.showTrailModal = false; this.trailLeave = null; }
+
+  refreshMyTasks() {
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => { this.myTasks = tasks; },
+      error: () => { this.toast.show('Failed to load tasks', 'error'); }
+    });
+  }
+
+  openTaskForm() {
+    this.taskFormTitle = '';
+    this.taskFormDescription = '';
+    this.taskFormPriority = '';
+    this.taskFormStatus = '';
+    this.taskFormDueDate = '';
+    this.taskFormManagerEmail = '';
+    this.showTaskForm = true;
+  }
+
+  closeTaskForm() {
+    this.showTaskForm = false;
+  }
+
+  submitTaskForm() {
+    if (!this.taskFormTitle || !this.taskFormPriority || !this.taskFormStatus) {
+      this.toast.show('Title, priority and status are required', 'error');
+      return;
+    }
+
+    this.pageLoading = true;
+    const taskRequest: any = {
+      title: this.taskFormTitle,
+      description: this.taskFormDescription,
+      priority: this.taskFormPriority,
+      status: this.taskFormStatus,
+      dueDate: this.taskFormDueDate || undefined,
+      managerEmail: this.taskFormManagerEmail || undefined
+    };
+
+    this.taskService.createTask(taskRequest).subscribe({
+      next: () => {
+        this.pageLoading = false;
+        this.closeTaskForm();
+        this.toast.show('Task created successfully!', 'success');
+        this.refreshMyTasks();
+      },
+      error: (err) => {
+        this.pageLoading = false;
+        console.error('Task creation error:', err);
+        this.toast.show(err.error?.message || 'Failed to create task', 'error');
+      }
+    });
+  }
+
+  deleteTask(taskId: number) {
+    this.deletingTaskId = taskId;
+    this.showDeleteTaskConfirm = true;
+  }
+
+  openEditTaskForm(task: Task) {
+    this.editingTask = task;
+    this.editTaskStatus = task.status;
+    this.showEditTaskForm = true;
+  }
+
+  closeEditTaskForm() {
+    this.showEditTaskForm = false;
+    this.editingTask = null;
+  }
+
+  submitEditTaskForm() {
+    if (!this.editingTask?.id || !this.editTaskStatus) return;
+    this.pageLoading = true;
+    const updated: Task = { ...this.editingTask, status: this.editTaskStatus };
+    this.taskService.updateTask(this.editingTask.id, updated).subscribe({
+      next: () => {
+        this.pageLoading = false;
+        this.closeEditTaskForm();
+        this.toast.show('Task updated!', 'success');
+        this.refreshMyTasks();
+      },
+      error: () => {
+        this.pageLoading = false;
+        this.toast.show('Failed to update task', 'error');
+      }
+    });
+  }
+
+  closeDeleteTaskConfirm() {
+    this.showDeleteTaskConfirm = false;
+    this.deletingTaskId = null;
+  }
+
+  confirmDeleteTask() {
+    if (this.deletingTaskId == null) return;
+    this.pageLoading = true;
+    this.taskService.deleteTask(this.deletingTaskId).subscribe({
+      next: () => {
+        this.pageLoading = false;
+        this.closeDeleteTaskConfirm();
+        this.toast.show('Task deleted successfully!', 'success');
+        this.refreshMyTasks();
+      },
+      error: () => {
+        this.pageLoading = false;
+        this.closeDeleteTaskConfirm();
+        this.toast.show('Failed to delete task', 'error');
+      }
+    });
+  }
 
   logout() { this.auth.logout(); this.router.navigate(['/']); }
 }

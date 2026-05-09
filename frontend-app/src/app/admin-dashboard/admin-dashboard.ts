@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth';
 import { UserService, Role, User, Stats, CreateUserRequest, UpdateUserRequest, MenuItem } from '../services/user';
 import { LeaveService, LeaveType, Leave, Holiday, HolidayRequest, CreateLeaveRequest, UpdateLeaveRequest, CreateLeaveTypeRequest, LeaveDay, calcWorkingDays, isRestrictedDate, PUBLIC_HOLIDAYS } from '../services/leave.service';
 import { CacheService } from '../services/cache.service';
+import { TaskService, Task } from '../services/task.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -11,6 +12,7 @@ import { ColDef, GridReadyEvent, GridApi, AllCommunityModule, ModuleRegistry } f
 import { ToastService } from '../services/toast.service';
 import { TrailModalComponent } from '../shared/trail-modal.component';
 import { AuditTrailComponent } from '../audit-trail/audit-trail.component';
+import { environment } from '../../environments/environment';
 ModuleRegistry.registerModules([AllCommunityModule]);
 @Component({
   selector: 'app-admin-dashboard',
@@ -99,6 +101,8 @@ export class AdminDashboard implements OnInit {
   myLeaves: Leave[] = [];
   pendingLeaves: Leave[] = [];
   loggedLeaves: Leave[] = [];
+  teamTasks: Task[] = [];
+  teamTaskLoading = false;
   myTasksTab: 'pending' | 'logged' = 'pending';
   private pendingGridApi: GridApi | null = null;
   private loggedGridApi: GridApi | null = null;
@@ -138,6 +142,8 @@ export class AdminDashboard implements OnInit {
   leaveFormToDate = '';
   leaveFormReason = '';
   leaveFormManagerEmail = '';
+  showDocumentModal = false;
+  savedDocuments: { file: File; id?: number; saved: boolean; uploadedAt?: string; uploadedBy?: string }[] = [];
   leaveDays: LeaveDay[] = [];
   leaveDayError = '';
   editLeaveForm: UpdateLeaveRequest = { leaveType: '', fromDate: '', toDate: '', reason: '', comments: '', dayType: 'FULL_DAY', halfDaySession: '' };
@@ -415,6 +421,7 @@ export class AdminDashboard implements OnInit {
     private userService: UserService,
     private leaveService: LeaveService,
     private cacheService: CacheService,
+    private taskService: TaskService,
     private router: Router,
     private toast: ToastService,
     private zone: NgZone
@@ -514,13 +521,22 @@ export class AdminDashboard implements OnInit {
     this.userService.getStats().subscribe({ next: (s) => this.stats = s, error: () => {} });
   }
   get activeMenuLabel(): string {
+    if (this.activeMenu === 'teamtasks') return 'Team Tasks';
     return this.menus.find(m => m.menuKey === this.activeMenu)?.menuLabel || this.activeMenu;
   }
   get quickActionMenus(): MenuItem[] {
-    return this.menus.filter(m => m.menuKey !== 'home' && m.menuKey !== 'holidaymanagement' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const base = this.menus.filter(m => m.menuKey !== 'home' && m.menuKey !== 'holidaymanagement' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    if (!base.some(m => m.menuKey === 'teamtasks')) {
+      base.push({ id: 998, menuKey: 'teamtasks', menuLabel: 'Team Tasks', menuOrder: 99, active: true });
+    }
+    return base;
   }
   get filteredMenus(): MenuItem[] {
-    return this.menus.filter(m => m.menuKey !== 'holidaymanagement' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const base = this.menus.filter(m => m.menuKey !== 'holidaymanagement' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    if (!base.some(m => m.menuKey === 'teamtasks')) {
+      base.push({ id: 998, menuKey: 'teamtasks', menuLabel: 'Team Tasks', menuOrder: 99, active: true });
+    }
+    return base;
   }
   get filteredUsers(): User[] {
     const q = this.searchQuery.toLowerCase();
@@ -546,6 +562,16 @@ export class AdminDashboard implements OnInit {
     if (menuKey === 'apply') {
       this.applyLeaveTab = 'apply';
     }
+    if (menuKey === 'teamtasks') {
+      this.loadTeamTasks();
+    }
+  }
+  loadTeamTasks() {
+    this.teamTaskLoading = true;
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => { this.teamTasks = tasks; this.teamTaskLoading = false; },
+      error: () => { this.teamTaskLoading = false; this.toast.show('Failed to load team tasks', 'error'); }
+    });
   }
 
   onTaskTabChange(tab: 'pending' | 'logged') {
@@ -664,6 +690,7 @@ export class AdminDashboard implements OnInit {
     this.showActionWizard = true;
   }
   closeActionWizard() { this.showActionWizard = false; this.actionLeave = null; this.dayDecisions = []; }
+
   openApproveAllConfirm() { this.showApproveAllConfirm = true; }
   closeApproveAllConfirm() { this.showApproveAllConfirm = false; }
   confirmApproveAll() {
@@ -923,9 +950,40 @@ export class AdminDashboard implements OnInit {
     this.leaveFormManagerEmail = '';
     this.leaveDays = [];
     this.leaveDayError = '';
+    this.savedDocuments = [];
     this.showLeaveForm = true;
   }
-  closeLeaveForm() { this.showLeaveForm = false; }
+  openDocumentModal() { this.showDocumentModal = true; }
+  closeDocumentModal() { this.showDocumentModal = false; }
+  onDocumentSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      Array.from(input.files).forEach(file => {
+        this.savedDocuments.push({ file, saved: false, uploadedAt: new Date().toISOString(), uploadedBy: this.fullName });
+      });
+      input.value = '';
+    }
+  }
+  get savedDocumentCount(): number {
+    return this.savedDocuments.filter(d => d.saved).length;
+  }
+  saveDocument(index: number) {
+    this.savedDocuments[index].saved = true;
+    this.toast.show('Document saved!', 'success');
+  }
+  deleteSavedDocument(index: number) {
+    this.savedDocuments.splice(index, 1);
+    this.toast.show('Document deleted!', 'success');
+  }
+  downloadDocument(doc: { file: File }) {
+    const url = URL.createObjectURL(doc.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  closeLeaveForm() { this.showLeaveForm = false; this.savedDocuments = []; }
   submitLeaveForm() {
     if (!this.leaveFormType || !this.leaveFormFromDate || !this.leaveFormToDate || !this.leaveFormReason) {
       this.toast.show('Leave type, dates and reason are required.', 'error'); return;
@@ -946,11 +1004,26 @@ export class AdminDashboard implements OnInit {
       managerEmail: this.leaveFormManagerEmail || undefined
     };
     this.leaveService.createLeave(req).subscribe({
-      next: () => {
-        this.pageLoading = false;
-        this.closeLeaveForm();
-        this.toast.show('Leave application submitted!', 'success');
-        this.refreshMyLeaves();
+      next: (created) => {
+        const afterUpload = () => {
+          this.pageLoading = false;
+          this.closeLeaveForm();
+          this.toast.show('Leave application submitted!', 'success');
+          this.refreshMyLeaves();
+        };
+        const filesToUpload = this.savedDocuments.filter(d => d.saved).map(d => d.file);
+        if (filesToUpload.length > 0 && created?.id) {
+          let uploadedCount = 0;
+          const totalFiles = filesToUpload.length;
+          filesToUpload.forEach(file => {
+            this.leaveService.uploadLeaveDocument(created.id, file).subscribe({
+              next: () => { uploadedCount++; if (uploadedCount === totalFiles) afterUpload(); },
+              error: () => { uploadedCount++; if (uploadedCount === totalFiles) { afterUpload(); this.toast.show('Leave submitted but some documents failed to upload.', 'error'); } }
+            });
+          });
+        } else {
+          afterUpload();
+        }
       },
       error: (err) => {
         this.pageLoading = false;

@@ -56,6 +56,7 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
   showTableModal = signal(false);
   currentTableData: any[] = [];
   currentTableMessage: ChatMessage | null = null;
+  isMaximized = signal(false);
 
   private msgIdSeq = 0;
   private abortController: AbortController | null = null;
@@ -218,14 +219,44 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
     this.isOpen.set(opening);
     if (opening) {
       if (this.messages().length === 0) {
-        this.loadWelcomeMessage();
-        this.loadSessions();
+        this.loadLatestSessionOrWelcome();
       }
       setTimeout(() => {
         this.adjustModalPosition();
         this.inputField?.nativeElement?.focus();
       }, 0);
     }
+  }
+
+  toggleMaximize(): void {
+    this.isMaximized.update(v => !v);
+  }
+
+  private loadLatestSessionOrWelcome(): void {
+    const email = this.authService.getEmail();
+    if (!email) {
+      this.loadWelcomeMessage();
+      return;
+    }
+
+    this.chatbotService.getChatSessions(email).subscribe({
+      next: (sessions) => {
+        if (sessions.length > 0) {
+          const latest = sessions.reduce((prev: any, curr: any) => 
+            new Date(curr.updatedAt) > new Date(prev.updatedAt) ? curr : prev
+          );
+          this.loadSession(latest.sessionId);
+          this.loadSessions();
+        } else {
+          this.loadWelcomeMessage();
+          this.loadSessions();
+        }
+      },
+      error: () => {
+        this.loadWelcomeMessage();
+        this.loadSessions();
+      }
+    });
   }
 
   private adjustModalPosition(): void {

@@ -28,6 +28,16 @@ export interface Leave {
   totalDays?: number;
   reviewedBy?: string;
   trail?: any[];
+  documentPath?: string;
+}
+export interface LeaveFile {
+  id: number;
+  leaveId: number;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  uploadedAt: string;
+  uploadedBy: string;
 }
 export interface UpdateLeaveRequest {
   leaveType: string;
@@ -260,4 +270,22 @@ export class LeaveService {
       tap(() => this.clearLeavesCache())
     );
   }
-}
+
+  uploadLeaveDocument(leaveId: number, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${this.baseUrl}/leave/${leaveId}/upload-document`, formData);
+  }
+
+  getLeaveFiles(leaveId: number): Observable<LeaveFile[]> {
+    return this.http.get<LeaveFile[]>(`${this.baseUrl}/leave/${leaveId}/files`);
+  }
+
+  deleteLeaveFile(fileId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/leave/files/${fileId}`);
+  }
+
+  downloadLeaveFile(fileId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/leave/files/${fileId}/download`, { responseType: 'blob' });
+  }
+}
