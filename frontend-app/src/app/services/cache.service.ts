@@ -11,8 +11,8 @@ export class CacheService {
   };
 
   private readonly CACHE_DURATION = {
-    HOLIDAYS: 24 * 60 * 60 * 1000, // 24 hours
-    LEAVE_TYPES: 24 * 60 * 60 * 1000, // 24 hours
+    HOLIDAYS: 24 * 60 * 60 * 1000, 
+    LEAVE_TYPES: 24 * 60 * 60 * 1000, 
     MENUS: 24 * 60 * 60 * 1000, // 24 hours
     USERS: 30 * 60 * 1000, // 30 minutes
     MANAGERS: 60 * 60 * 1000 // 1 hour

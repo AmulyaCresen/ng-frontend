@@ -79,6 +79,26 @@ export function isRestrictedDate(dateStr: string): boolean {
   const day = parseLocalDate(dateStr).getDay();
   return day === 0 || day === 6 || PUBLIC_HOLIDAYS.includes(dateStr);
 }
+const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const MONTHS_MIXED = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+export function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const s = String(dateStr).split('T')[0];
+  const parts = s.split('-');
+  if (parts.length !== 3) return dateStr ?? '';
+  const [y, m, d] = parts.map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12) return dateStr ?? '';
+  return `${String(d).padStart(2, '0')}-${MONTHS_SHORT[m - 1]}-${y}`;
+}
+export function fmtDateLong(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const s = String(dateStr).split('T')[0];
+  const parts = s.split('-');
+  if (parts.length !== 3) return dateStr ?? '';
+  const [y, m, d] = parts.map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12) return dateStr ?? '';
+  return `${String(d).padStart(2, '0')} ${MONTHS_MIXED[m - 1]} ${y}`;
+}
 export function calcWorkingDays(from: string, to: string, dayType?: string): number {
   if (!from || !to) return 0;
   if (dayType === 'HALF_DAY') return 0.5;

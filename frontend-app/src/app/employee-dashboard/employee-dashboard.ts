@@ -1,7 +1,7 @@
 ﻿import { Component, OnInit, NgZone } from '@angular/core';
 import { AuthService } from '../services/auth';
 import { UserService, MenuItem } from '../services/user';
-import { LeaveService, LeaveType, Leave, LeaveDay, LeaveFile, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays } from '../services/leave.service';
+import { LeaveService, LeaveType, Leave, LeaveDay, LeaveFile, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays, fmtDate, fmtDateLong } from '../services/leave.service';
 import { TaskService, Task } from '../services/task.service';
 import { CacheService } from '../services/cache.service';
 import { Router } from '@angular/router';
@@ -30,6 +30,7 @@ export class EmployeeDashboard implements OnInit {
   gender = '';
   menus: MenuItem[] = [];
   private userFullNameMap: Map<string, string> = new Map();
+  fmtDate = fmtDate;
   getFullName(email: string): string {
     return this.userFullNameMap.get(email) || email;
   }
@@ -56,6 +57,8 @@ export class EmployeeDashboard implements OnInit {
   showEditTaskForm = false;
   editingTask: Task | null = null;
   editTaskStatus = '';
+  editTaskCompletedOn = '';
+  editTaskRemarks = '';
   deletingTaskId: number | null = null;
   taskFormTitle = '';
   taskFormDescription = '';
@@ -257,8 +260,8 @@ export class EmployeeDashboard implements OnInit {
   }
   myLeaveColDefs: ColDef[] = [
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
-    { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-    { field: 'toDate', headerName: 'To', width: 115, sortable: true },
+    { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { headerName: 'Duration', width: 100, sortable: false,
       cellRenderer: (p: any) => {
         const total = p.data?.totalDays ??
@@ -267,7 +270,7 @@ export class EmployeeDashboard implements OnInit {
       }
     },
     { field: 'reason', headerName: 'Reason', flex: 1.5, sortable: true, filter: true },
-    { field: 'createdAt', headerName: 'Applied On', width: 120, sortable: true },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { field: 'status', headerName: 'Status', width: 155, sortable: true,
       cellRenderer: (p: any) => {
         const s = p.value || 'PENDING';
@@ -447,6 +450,12 @@ export class EmployeeDashboard implements OnInit {
       });
       input.value = '';
     }
+  }
+
+  viewDocument(doc: { file: File; id?: number }) {
+    const url = URL.createObjectURL(doc.file);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
   get savedDocumentCount(): number {
@@ -670,18 +679,27 @@ export class EmployeeDashboard implements OnInit {
   openEditTaskForm(task: Task) {
     this.editingTask = task;
     this.editTaskStatus = task.status;
+    this.editTaskCompletedOn = task.completedAt ? task.completedAt.split('T')[0] : '';
+    this.editTaskRemarks = task.completionRemarks || '';
     this.showEditTaskForm = true;
   }
 
   closeEditTaskForm() {
     this.showEditTaskForm = false;
     this.editingTask = null;
+    this.editTaskCompletedOn = '';
+    this.editTaskRemarks = '';
   }
 
   submitEditTaskForm() {
     if (!this.editingTask?.id || !this.editTaskStatus) return;
     this.pageLoading = true;
-    const updated: Task = { ...this.editingTask, status: this.editTaskStatus };
+    const updated: Task = {
+      ...this.editingTask,
+      status: this.editTaskStatus,
+      completedAt: this.editTaskStatus === 'COMPLETED' ? (this.editTaskCompletedOn || this.today) : undefined,
+      completionRemarks: this.editTaskStatus === 'COMPLETED' ? this.editTaskRemarks : undefined
+    };
     this.taskService.updateTask(this.editingTask.id, updated).subscribe({
       next: () => {
         this.pageLoading = false;

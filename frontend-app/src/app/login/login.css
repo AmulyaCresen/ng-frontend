@@ -97,8 +97,8 @@
   height: auto;
 }
 .logo-img {
-  max-width: 200px;       
-  height: auto;           
+  max-width: 480px;
+  height: auto;
   display: block;
 }
 .brand-name {
@@ -349,4 +349,4 @@
     width: 38px;
     height: 38px;
   }
-}
+}

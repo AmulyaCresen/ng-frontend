@@ -1,30 +1,25 @@
 import { Routes } from '@angular/router';
-import { Login } from './login/login';
-import { AdminDashboard } from './admin-dashboard/admin-dashboard';
-import { ManagerDashboard } from './manager-dashboard/manager-dashboard';
-import { EmployeeDashboard } from './employee-dashboard/employee-dashboard';
-import { ForgotPassword } from './forgot-password/forgot-password';
 import { authGuard } from './guards/auth-guard';
 export const routes: Routes = [
-  { path: '', component: Login },
-  { path: 'forgot-password', component: ForgotPassword },
+  { path: '', loadComponent: () => import('./login/login').then(m => m.Login) },
+  { path: 'forgot-password', loadComponent: () => import('./forgot-password/forgot-password').then(m => m.ForgotPassword) },
   {
     path: 'admin',
-    component: AdminDashboard,
+    loadComponent: () => import('./admin-dashboard/admin-dashboard').then(m => m.AdminDashboard),
     canActivate: [authGuard],
     data: { role: 'ADMIN' }
   },
   {
     path: 'manager',
-    component: ManagerDashboard,
+    loadComponent: () => import('./manager-dashboard/manager-dashboard').then(m => m.ManagerDashboard),
     canActivate: [authGuard],
     data: { role: 'MANAGER' }
   },
   {
     path: 'employee',
-    component: EmployeeDashboard,
+    loadComponent: () => import('./employee-dashboard/employee-dashboard').then(m => m.EmployeeDashboard),
     canActivate: [authGuard],
     data: { role: 'EMPLOYEE' }
   },
   { path: '**', redirectTo: '' }
-];
+];

@@ -45,7 +45,7 @@
     <div class="content">
       <ng-container *ngIf="activeMenu === 'home'">
         <div class="welcome-banner">
-          <h1>Welcome, {{ fullName }} ??</h1>
+          <h1>Welcome, {{ fullName }} 👋</h1>
           <p>You are logged in as <strong>{{ role }}</strong></p>
           <span class="tagline">Your leave management, all in one place.</span>
         </div>
@@ -104,6 +104,7 @@
               [defaultColDef]="defaultColDef"
               [pagination]="true"
               [paginationPageSize]="10"
+              [paginationPageSizeSelector]="[10, 20, 50]"
               [animateRows]="true"
               style="width: 100%; height: calc(100vh - 220px);">
             </ag-grid-angular>
@@ -144,11 +145,21 @@
             <div class="task-footer">
               <div class="task-footer-item">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <span>{{ (task.dueDate | slice:0:10) || '�' }}</span>
+                <span>{{ fmtDate(task.dueDate) || '\u2014' }}</span>
               </div>
               <div class="task-footer-item" *ngIf="task.managerEmail">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span>{{ getFullName(task.managerEmail) }}</span>
+              </div>
+            </div>
+            <div class="task-completion-info" *ngIf="task.status === 'COMPLETED'">
+              <div class="task-completion-row" *ngIf="task.completedAt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Completed on {{ fmtDate(task.completedAt) }}</span>
+              </div>
+              <div class="task-completion-row task-remarks" *ngIf="task.completionRemarks">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>{{ task.completionRemarks }}</span>
               </div>
             </div>
           </div>
@@ -269,7 +280,7 @@
       </div>
       <div *ngIf="leaveDays.length > 0" class="day-config-section">
         <div class="day-config-row" *ngFor="let d of leaveDays">
-          <span class="day-config-date">{{ d.date }}</span>
+          <span class="day-config-date">{{ fmtDate(d.date) }}</span>
           <div class="day-type-toggle">
             <button type="button" [class.active]="d.dayType === 'FULL_DAY'" (click)="d.dayType = 'FULL_DAY'; d.halfDaySession = ''; validateLeaveDays()">Full Day</button>
             <button type="button" [class.active]="d.dayType === 'HALF_DAY'" (click)="d.dayType = 'HALF_DAY'; validateLeaveDays()">Half Day</button>
@@ -291,15 +302,14 @@
         </div>
       </div>
       <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
-      <div class="form-row">
-        <div class="field">
-          <button type="button" class="add-btn" (click)="openDocumentModal()" style="width:auto;padding:8px 16px">
-            📎 Upload Documents
-          </button>
-          <span *ngIf="savedDocumentCount > 0" style="margin-left:12px;font-size:13px;color:#10b981">{{ savedDocumentCount }} document(s) saved</span>
-        </div>
-      </div>
       <div class="form-actions">
+        <button type="button" class="add-btn" (click)="openDocumentModal()" style="padding:10px 20px;display:inline-flex;align-items:center;gap:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+          Attach Files
+          <span *ngIf="savedDocumentCount > 0" style="margin-left:4px;background:#10b981;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">{{ savedDocumentCount }}</span>
+        </button>
         <button type="button" class="cancel-btn" (click)="closeLeaveForm()">Cancel</button>
         <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0">
           Submit Application
@@ -387,6 +397,16 @@
           <option value="COMPLETED">Completed</option>
         </select>
       </div>
+      <ng-container *ngIf="editTaskStatus === 'COMPLETED'">
+        <div class="field" style="margin-top:12px">
+          <label>Completed On</label>
+          <input type="date" [(ngModel)]="editTaskCompletedOn" name="editTaskCompletedOn" [max]="today" />
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Completion Remarks</label>
+          <textarea [(ngModel)]="editTaskRemarks" name="editTaskRemarks" rows="3" placeholder="Add any notes about completion..."></textarea>
+        </div>
+      </ng-container>
     </div>
     <div class="form-actions">
       <button type="button" class="cancel-btn" (click)="closeEditTaskForm()">Cancel</button>
@@ -415,16 +435,15 @@
     </div>
     <div style="padding:16px 0">
       <div style="margin-bottom:16px">
-        <label class="add-btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+        <label class="add-btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin:0;width:auto;padding:8px 16px">
           <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" (change)="onDocumentSelect($event)" style="display:none" />
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          Add Files
+          Select Files
         </label>
       </div>
-
       <div *ngIf="savedDocuments.length > 0">
         <div *ngFor="let doc of savedDocuments; let idx = index" [style]="'display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;margin-bottom:8px;' + (doc.saved ? 'background:#f0fdf4;border:1px solid #86efac' : 'background:#f8fafc;border:1px solid #e2e8f0')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" [attr.stroke]="doc.saved ? '#10b981' : '#64748b'" stroke-width="2">
@@ -434,42 +453,49 @@
           <div style="flex:1">
             <div style="font-size:13px;font-weight:500;color:#1e293b">{{ doc.file.name }}</div>
             <div style="font-size:12px;color:#64748b">{{ (doc.file.size / 1024).toFixed(1) }} KB</div>
-            <div style="font-size:11px;color:#94a3b8" *ngIf="doc.uploadedAt">Uploaded: {{ doc.uploadedAt | slice:0:10 }}</div>
-            <div style="font-size:11px;color:#94a3b8" *ngIf="doc.uploadedBy">Uploaded By: {{ doc.uploadedBy }}</div>
           </div>
-          <button *ngIf="!doc.saved" (click)="saveDocument(idx)" class="submit-btn" style="padding:6px 12px;font-size:12px" title="Save">
+          <button (click)="viewDocument(doc)" style="background:#3b82f6;border:none;color:white;cursor:pointer;padding:6px 12px;border-radius:6px;font-size:12px;display:inline-flex;align-items:center;gap:4px" title="View">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            View
+          </button>
+          <button *ngIf="!doc.saved" (click)="saveDocument(idx)" class="submit-btn" style="padding:6px 12px;font-size:12px;display:inline-flex;align-items:center;gap:4px" title="Save">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
               <polyline points="17 21 17 13 7 13 7 21"/>
               <polyline points="7 3 7 8 15 8"/>
             </svg>
+            Save
           </button>
-          <button *ngIf="doc.saved" (click)="downloadDocument(doc)" class="submit-btn" style="padding:6px 12px;font-size:12px;background:#10b981" title="Download">
+          <button *ngIf="doc.saved" (click)="downloadDocument(doc)" style="background:#10b981;border:none;color:white;cursor:pointer;padding:6px 12px;border-radius:6px;font-size:12px;display:inline-flex;align-items:center;gap:4px" title="Download">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
+            Download
           </button>
-          <button (click)="deleteSavedDocument(idx)" style="background:transparent;border:none;color:#ef4444;cursor:pointer;padding:4px" title="Delete">
+          <button (click)="deleteSavedDocument(idx)" style="background:transparent;border:none;color:#ef4444;cursor:pointer;padding:6px 12px;display:inline-flex;align-items:center;gap:4px" title="Delete">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
             </svg>
+            Delete
           </button>
         </div>
       </div>
-
       <div *ngIf="savedDocuments.length === 0" style="text-align:center;padding:40px 20px;color:#94a3b8">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px">
           <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
           <polyline points="13 2 13 9 20 9"/>
         </svg>
-        <p>No documents added yet. Click "Add Files" to upload.</p>
+        <p>No documents added yet. Click "Select Files" to upload.</p>
       </div>
     </div>
     <div class="form-actions">
-      <button type="button" class="cancel-btn" (click)="closeDocumentModal()">Close</button>
+      <button type="button" class="submit-btn" (click)="closeDocumentModal()">Done</button>
     </div>
   </div>
 </div>

@@ -16,10 +16,6 @@ export class ChatbotService {
 
   constructor(private http: HttpClient) {}
 
-  /**
-   * Streams AI response tokens via SSE using the Fetch API (supports POST + streaming).
-   * Yields raw text chunks as they arrive from the backend.
-   */
   streamMessage(
     message: string,
     userEmail: string | null,
@@ -60,9 +56,7 @@ export class ChatbotService {
 
             buffer += decoder.decode(value, { stream: true });
 
-            // Split on double-newline (SSE event boundary)
             const events = buffer.split('\n\n');
-            // Keep last incomplete chunk in buffer
             buffer = events.pop() ?? '';
 
             for (const event of events) {
@@ -70,7 +64,6 @@ export class ChatbotService {
                 if (line.startsWith('event:')) {
                   const evtName = line.slice(6).trim();
                   if (evtName === 'done' || evtName === 'error') {
-                    // handled via data line below
                   }
                 } else if (line.startsWith('data:')) {
                   const data = line.slice(5).trim();
@@ -102,6 +95,22 @@ export class ChatbotService {
       });
 
     return controller;
+  }
+
+  getQuickResponse(action: string, userEmail: string | null, userName: string | null, userRole: string | null): Observable<any> {
+    const token = sessionStorage.getItem('token');
+    return this.http.post(`${this.baseUrl}/quick-response`, 
+      { action, userEmail, userName, userRole },
+      { headers: token ? { 'Authorization': `Bearer ${token}` } : {} }
+    );
+  }
+  
+  saveQuickChatHistory(userMessage: string, botResponse: string, email: string, sessionId: number | null, latency: number): Observable<any> {
+    const token = sessionStorage.getItem('token');
+    return this.http.post(`${this.baseUrl}/save-quick-history`, 
+      { userMessage, botResponse, email, sessionId, latency },
+      { headers: token ? { 'Authorization': `Bearer ${token}` } : {} }
+    );
   }
 
   getWelcomeMessage(): Observable<WelcomeResponse> {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
-import { LeaveService, Leave } from '../services/leave.service';
+import { LeaveService, Leave, fmtDate } from '../services/leave.service';
 import { UserService } from '../services/user';
 import { AuthService } from '../services/auth';
 import { TrailHelper } from '../services/trail-helper';
@@ -55,6 +55,7 @@ export class AuditTrailComponent implements OnInit {
     this.loadLeaves();
   }
 
+  fmtDate = fmtDate;
   getFullName(email: string): string {
     return this.userFullNameMap.get(email) || email;
   }
@@ -92,9 +93,9 @@ export class AuditTrailComponent implements OnInit {
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true,
       cellRenderer: (p: any) => `<span class="audit-leave-type-badge">${p.value || ''}</span>`
     },
-    { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-    { field: 'toDate', headerName: 'To', width: 115, sortable: true },
-    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true },
+    { field: 'fromDate', headerName: 'From', width: 115, sortable: true, valueFormatter: (p: any) => fmtDate(p.value) },
+    { field: 'toDate', headerName: 'To', width: 115, sortable: true, valueFormatter: (p: any) => fmtDate(p.value) },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDate(p.value) },
     { field: 'status', headerName: 'Status', width: 165, sortable: true,
       cellRenderer: (p: any) => {
         const s = p.value || 'PENDING';

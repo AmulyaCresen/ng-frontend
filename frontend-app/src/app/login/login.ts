@@ -59,8 +59,8 @@ export class Login {
           this.errorMessage = 'Request timed out. Please try again.';
         } else if (err.status === 401) {
           const reason = err.error?.detail || err.error?.message || '';
-          if (reason.toLowerCase().includes('disabled')) {
-            this.errorMessage = 'Account is disabled. Please contact admin.';
+          if (reason.toLowerCase().includes('disabled') || reason.toLowerCase().includes('inactive')) {
+            this.errorMessage = 'User is inactive. Please contact admin.';
           } else {
             this.errorMessage = 'Wrong email or password. Please try again.';
           }

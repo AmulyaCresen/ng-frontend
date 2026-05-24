@@ -1,7 +1,7 @@
 import { Component, OnInit, NgZone } from '@angular/core';
 import { AuthService } from '../services/auth';
 import { UserService, MenuItem, User } from '../services/user';
-import { LeaveService, LeaveType, Leave, LeaveDay, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays } from '../services/leave.service';
+import { LeaveService, LeaveType, Leave, LeaveDay, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays, fmtDate, fmtDateLong } from '../services/leave.service';
 import { CacheService } from '../services/cache.service';
 import { TaskService, Task } from '../services/task.service';
 import { Router } from '@angular/router';
@@ -75,6 +75,7 @@ export class ManagerDashboard implements OnInit {
   leaveFormManagerEmail = '';
   showDocumentModal = false;
   savedDocuments: { file: File; id?: number; saved: boolean; uploadedAt?: string; uploadedBy?: string }[] = [];
+  isViewingEmployeeDocuments = false;
   managers: User[] = [];
   leaveDays: LeaveDay[] = [];
   leaveDayError = '';
@@ -235,6 +236,7 @@ export class ManagerDashboard implements OnInit {
     this.leaveDayError = '';
   }
   onEditHalfDaySessionChange() { this.leaveDayError = ''; }
+  fmtDate = fmtDate;
   getFullName(email: string): string {
     return this.userFullNameMap.get(email) || email;
   }
@@ -261,8 +263,8 @@ export class ManagerDashboard implements OnInit {
   }
   myLeaveColDefs: ColDef[] = [
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
-    { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-    { field: 'toDate', headerName: 'To', width: 115, sortable: true },
+    { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { headerName: 'Duration', width: 100, sortable: false,
       cellRenderer: (p: any) => {
         const total = p.data?.totalDays ??
@@ -271,7 +273,7 @@ export class ManagerDashboard implements OnInit {
       }
     },
     { field: 'reason', headerName: 'Reason', flex: 1.5, sortable: true, filter: true },
-    { field: 'createdAt', headerName: 'Applied On', width: 120, sortable: true },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { field: 'status', headerName: 'Status', width: 155, sortable: true,
       cellRenderer: (p: any) => {
         const s = p.value || 'PENDING';
@@ -333,8 +335,8 @@ export class ManagerDashboard implements OnInit {
     this.pendingLeaveColDefs = [
       { field: 'emailId', headerName: 'Employee', flex: 1.5, sortable: true, filter: true },
       { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
-      { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-      { field: 'toDate', headerName: 'To', width: 115, sortable: true },
+      { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+      { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
       { headerName: 'Duration', width: 100, sortable: false,
         cellRenderer: (p: any) => {
           const total = p.data?.totalDays ??
@@ -343,7 +345,7 @@ export class ManagerDashboard implements OnInit {
         }
       },
       { field: 'reason', headerName: 'Reason', flex: 1, sortable: true, filter: true },
-      { field: 'createdAt', headerName: 'Applied On', width: 115, sortable: true },
+      { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
       { headerName: 'Action', width: 120, minWidth: 120, maxWidth: 120, sortable: false, filter: false, resizable: false, suppressSizeToFit: true,
         cellStyle: { display: 'flex', alignItems: 'center', padding: '0 4px' },
         cellRenderer: (p: any) => {
@@ -356,6 +358,16 @@ export class ManagerDashboard implements OnInit {
           wrap.style.cssText = 'display:flex;align-items:center;height:100%';
           wrap.appendChild(action);
           return wrap;
+        }
+      },
+      { headerName: 'Documents', width: 130, sortable: false, filter: false,
+        cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        cellRenderer: (p: any) => {
+          const btn = document.createElement('button');
+          btn.className = 'view-doc-btn';
+          btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> View Docs`;
+          btn.addEventListener('click', (e) => { e.stopPropagation(); this.zone.run(() => this.viewLeaveDocuments(p.data)); });
+          return btn;
         }
       },
       { headerName: 'Trail', width: 110, sortable: false, filter: false,
@@ -517,8 +529,10 @@ export class ManagerDashboard implements OnInit {
   openApproveAllConfirm() { this.showApproveAllConfirm = true; }
   closeApproveAllConfirm() { this.showApproveAllConfirm = false; }
   confirmApproveAll() {
+    if (!this.actionLeave) return;
     this.dayDecisions.forEach(d => { d.status = 'APPROVED'; d.reason = ''; });
     this.showApproveAllConfirm = false;
+    this.submitActionWizard();
   }
   openRejectAllConfirm() { this.rejectAllReason = ''; this.showRejectAllConfirm = true; }
   closeRejectAllConfirm() { this.showRejectAllConfirm = false; }
@@ -528,6 +542,7 @@ export class ManagerDashboard implements OnInit {
     }
     this.dayDecisions.forEach(d => { d.status = 'REJECTED'; d.reason = this.rejectAllReason.trim(); });
     this.showRejectAllConfirm = false;
+    this.submitActionWizard();
   }
   submitActionWizard() {
     if (!this.actionLeave) return;
@@ -558,8 +573,8 @@ export class ManagerDashboard implements OnInit {
   loggedLeaveColDefs: ColDef[] = [
     { field: 'emailId', headerName: 'Employee', flex: 1.5, sortable: true, filter: true },
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
-    { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-    { field: 'toDate', headerName: 'To', width: 115, sortable: true },
+    { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { headerName: 'Duration', width: 100, sortable: false,
       cellRenderer: (p: any) => {
         const total = p.data?.totalDays ??
@@ -568,7 +583,7 @@ export class ManagerDashboard implements OnInit {
       }
     },
     { field: 'reason', headerName: 'Reason', flex: 1.5, sortable: true, filter: true },
-    { field: 'createdAt', headerName: 'Applied On', width: 115, sortable: true },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { field: 'status', headerName: 'Status', width: 140, sortable: true,
       cellRenderer: (p: any) => {
         const s = p.value || '';
@@ -598,8 +613,8 @@ export class ManagerDashboard implements OnInit {
     this.savedDocuments = [];
     this.showLeaveForm = true;
   }
-  openDocumentModal() { this.showDocumentModal = true; }
-  closeDocumentModal() { this.showDocumentModal = false; }
+  openDocumentModal() { this.isViewingEmployeeDocuments = false; this.showDocumentModal = true; }
+  closeDocumentModal() { this.showDocumentModal = false; this.isViewingEmployeeDocuments = false; }
   onDocumentSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
@@ -607,6 +622,22 @@ export class ManagerDashboard implements OnInit {
         this.savedDocuments.push({ file, saved: false, uploadedAt: new Date().toISOString(), uploadedBy: this.fullName });
       });
       input.value = '';
+    }
+  }
+  viewDocument(doc: { file: File; id?: number }) {
+    if (doc.id) {
+      this.leaveService.downloadLeaveFile(doc.id).subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+        },
+        error: () => this.toast.show('Failed to view document.', 'error')
+      });
+    } else {
+      const url = URL.createObjectURL(doc.file);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     }
   }
   get savedDocumentCount(): number {
@@ -617,16 +648,41 @@ export class ManagerDashboard implements OnInit {
     this.toast.show('Document saved!', 'success');
   }
   deleteSavedDocument(index: number) {
-    this.savedDocuments.splice(index, 1);
-    this.toast.show('Document deleted!', 'success');
+    const doc = this.savedDocuments[index];
+    if (doc.id && doc.saved) {
+      this.leaveService.deleteLeaveFile(doc.id).subscribe({
+        next: () => {
+          this.savedDocuments.splice(index, 1);
+          this.toast.show('Document deleted!', 'success');
+        },
+        error: () => this.toast.show('Failed to delete document.', 'error')
+      });
+    } else {
+      this.savedDocuments.splice(index, 1);
+      this.toast.show('Document removed!', 'success');
+    }
   }
-  downloadDocument(doc: { file: File }) {
-    const url = URL.createObjectURL(doc.file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = doc.file.name;
-    a.click();
-    URL.revokeObjectURL(url);
+  downloadDocument(doc: { file: File; id?: number }) {
+    if (doc.id) {
+      this.leaveService.downloadLeaveFile(doc.id).subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = doc.file.name;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.toast.show('Failed to download document.', 'error')
+      });
+    } else {
+      const url = URL.createObjectURL(doc.file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   }
   closeLeaveForm() { this.showLeaveForm = false; this.savedDocuments = []; }
   submitLeaveForm() {
@@ -717,6 +773,27 @@ export class ManagerDashboard implements OnInit {
   }
   openTrailModal(leave: Leave) { this.trailLeave = leave; this.showTrailModal = true; }
   closeTrailModal() { this.showTrailModal = false; this.trailLeave = null; }
+
+  viewLeaveDocuments(leave: Leave) {
+    this.leaveService.getLeaveFiles(leave.id).subscribe({
+      next: (files) => {
+        if (files.length === 0) {
+          this.toast.show('No documents uploaded for this leave.', 'info');
+          return;
+        }
+        this.savedDocuments = files.map(f => ({
+          file: new File([], f.fileName),
+          id: f.id,
+          saved: true,
+          uploadedAt: f.uploadedAt,
+          uploadedBy: f.uploadedBy
+        }));
+        this.isViewingEmployeeDocuments = true;
+        this.showDocumentModal = true;
+      },
+      error: () => this.toast.show('Failed to load documents.', 'error')
+    });
+  }
 
   logout() { this.auth.logout(); this.router.navigate(['/']); }
 }

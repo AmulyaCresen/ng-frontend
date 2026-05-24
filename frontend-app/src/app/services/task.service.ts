@@ -14,6 +14,8 @@ export interface Task {
   managerEmail?: string;
   createdAt?: string;
   updatedAt?: string;
+  completedAt?: string;
+  completionRemarks?: string;
 }
 
 @Injectable({

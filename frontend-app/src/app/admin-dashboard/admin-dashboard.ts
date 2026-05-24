@@ -1,7 +1,7 @@
 ﻿import { Component, OnInit, NgZone } from '@angular/core';
 import { AuthService } from '../services/auth';
 import { UserService, Role, User, Stats, CreateUserRequest, UpdateUserRequest, MenuItem } from '../services/user';
-import { LeaveService, LeaveType, Leave, Holiday, HolidayRequest, CreateLeaveRequest, UpdateLeaveRequest, CreateLeaveTypeRequest, LeaveDay, calcWorkingDays, isRestrictedDate, PUBLIC_HOLIDAYS } from '../services/leave.service';
+import { LeaveService, LeaveType, Leave, Holiday, HolidayRequest, CreateLeaveRequest, UpdateLeaveRequest, CreateLeaveTypeRequest, LeaveDay, calcWorkingDays, isRestrictedDate, PUBLIC_HOLIDAYS, fmtDate, fmtDateLong } from '../services/leave.service';
 import { CacheService } from '../services/cache.service';
 import { TaskService, Task } from '../services/task.service';
 import { Router } from '@angular/router';
@@ -83,7 +83,7 @@ export class AdminDashboard implements OnInit {
   holidayColDefs: ColDef[] = [
     { field: 'id', headerName: 'ID', width: 80, sortable: true },
     { field: 'name', headerName: 'Holiday Name', flex: 1, sortable: true, filter: true },
-    { field: 'date', headerName: 'Date', width: 150, sortable: true },
+    { field: 'date', headerName: 'Date', width: 150, sortable: true, valueFormatter: (p: any) => fmtDate(p.value) },
     { headerName: 'Action', width: 120, sortable: false, filter: false,
       cellRenderer: () => `
         <button class="edit-btn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -144,6 +144,7 @@ export class AdminDashboard implements OnInit {
   leaveFormManagerEmail = '';
   showDocumentModal = false;
   savedDocuments: { file: File; id?: number; saved: boolean; uploadedAt?: string; uploadedBy?: string }[] = [];
+  isViewingEmployeeDocuments = false;
   leaveDays: LeaveDay[] = [];
   leaveDayError = '';
   editLeaveForm: UpdateLeaveRequest = { leaveType: '', fromDate: '', toDate: '', reason: '', comments: '', dayType: 'FULL_DAY', halfDaySession: '' };
@@ -158,6 +159,7 @@ export class AdminDashboard implements OnInit {
       return true;
     });
   }
+  fmtDate = fmtDate;
   calcDays(from: string, to: string, dayType?: string): number {
     return calcWorkingDays(from, to, dayType);
   }
@@ -352,8 +354,8 @@ export class AdminDashboard implements OnInit {
   }
   myLeaveColDefs: ColDef[] = [
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
-    { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-    { field: 'toDate', headerName: 'To', width: 115, sortable: true },
+    { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { headerName: 'Duration', width: 100, sortable: false,
       cellRenderer: (p: any) => {
         const total = p.data?.totalDays ??
@@ -362,7 +364,7 @@ export class AdminDashboard implements OnInit {
       }
     },
     { field: 'reason', headerName: 'Reason', flex: 1.5, sortable: true, filter: true },
-    { field: 'createdAt', headerName: 'Applied On', width: 120, sortable: true },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { field: 'status', headerName: 'Status', width: 155, sortable: true,
       cellRenderer: (p: any) => {
         const s = p.value || 'PENDING';
@@ -409,8 +411,8 @@ export class AdminDashboard implements OnInit {
     { field: 'id', headerName: 'ID', width: 80, sortable: true },
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
     { field: 'emailId', headerName: 'Email', flex: 1.5, sortable: true, filter: true },
-    { field: 'fromDate', headerName: 'From Date', width: 130, sortable: true },
-    { field: 'toDate', headerName: 'To Date', width: 130, sortable: true },
+    { field: 'fromDate', headerName: 'From Date', width: 130, sortable: true, valueFormatter: (p: any) => fmtDate(p.value) },
+    { field: 'toDate', headerName: 'To Date', width: 130, sortable: true, valueFormatter: (p: any) => fmtDate(p.value) },
     { field: 'reason', headerName: 'Reason', flex: 1.5, sortable: true, filter: true },
     { field: 'comments', headerName: 'Comments', flex: 1, sortable: true }
   ];
@@ -694,8 +696,10 @@ export class AdminDashboard implements OnInit {
   openApproveAllConfirm() { this.showApproveAllConfirm = true; }
   closeApproveAllConfirm() { this.showApproveAllConfirm = false; }
   confirmApproveAll() {
+    if (!this.actionLeave) return;
     this.dayDecisions.forEach(d => { d.status = 'APPROVED'; d.reason = ''; });
     this.showApproveAllConfirm = false;
+    this.submitActionWizard();
   }
   openRejectAllConfirm() { this.rejectAllReason = ''; this.showRejectAllConfirm = true; }
   closeRejectAllConfirm() { this.showRejectAllConfirm = false; }
@@ -705,6 +709,7 @@ export class AdminDashboard implements OnInit {
     }
     this.dayDecisions.forEach(d => { d.status = 'REJECTED'; d.reason = this.rejectAllReason.trim(); });
     this.showRejectAllConfirm = false;
+    this.submitActionWizard();
   }
   setAllDecisions(status: 'APPROVED' | 'REJECTED') {
     this.dayDecisions.forEach(d => d.status = status);
@@ -738,8 +743,8 @@ export class AdminDashboard implements OnInit {
   pendingLeaveColDefs: ColDef[] = [
     { field: 'emailId', headerName: 'Employee', flex: 1.5, sortable: true, filter: true },
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
-    { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-    { field: 'toDate', headerName: 'To', width: 115, sortable: true },
+    { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { headerName: 'Duration', width: 100, sortable: false,
       cellRenderer: (p: any) => {
         const total = p.data?.totalDays ??
@@ -748,7 +753,7 @@ export class AdminDashboard implements OnInit {
       }
     },
     { field: 'reason', headerName: 'Reason', flex: 1, sortable: true, filter: true },
-    { field: 'createdAt', headerName: 'Applied On', width: 115, sortable: true },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { headerName: 'Action', width: 120, minWidth: 120, maxWidth: 120, sortable: false, filter: false, resizable: false, suppressSizeToFit: true,
       cellStyle: { display: 'flex', alignItems: 'center', padding: '0 4px' },
       cellRenderer: (p: any) => {
@@ -762,6 +767,17 @@ export class AdminDashboard implements OnInit {
         return wrap;
       }
     },
+    { headerName: 'Documents', width: 130, sortable: false, filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      cellRenderer: (p: any) => {
+        const btn = document.createElement('button');
+        btn.className = 'view-doc-btn';
+        btn.style.cssText = '';
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> View Docs`;
+        btn.addEventListener('click', (e) => { e.stopPropagation(); this.zone.run(() => this.viewLeaveDocuments(p.data)); });
+        return btn;
+      }
+    },
     { headerName: 'Trail', width: 110, sortable: false, filter: false,
       cellStyle: { display: 'flex', alignItems: 'center' },
       cellRenderer: () => `<button class="audit-view-btn">View Trail</button>`,
@@ -771,8 +787,8 @@ export class AdminDashboard implements OnInit {
   loggedLeaveColDefs: ColDef[] = [
     { field: 'emailId', headerName: 'Employee', flex: 1.5, sortable: true, filter: true },
     { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
-    { field: 'fromDate', headerName: 'From', width: 115, sortable: true },
-    { field: 'toDate', headerName: 'To', width: 115, sortable: true },
+    { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { headerName: 'Duration', width: 100, sortable: false,
       cellRenderer: (p: any) => {
         const total = p.data?.totalDays ??
@@ -781,7 +797,7 @@ export class AdminDashboard implements OnInit {
       }
     },
     { field: 'reason', headerName: 'Reason', flex: 1, sortable: true, filter: true },
-    { field: 'createdAt', headerName: 'Applied On', width: 115, sortable: true },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
     { field: 'status', headerName: 'Status', width: 140, sortable: true,
       cellRenderer: (p: any) => {
         const s = p.value || '';
@@ -953,8 +969,8 @@ export class AdminDashboard implements OnInit {
     this.savedDocuments = [];
     this.showLeaveForm = true;
   }
-  openDocumentModal() { this.showDocumentModal = true; }
-  closeDocumentModal() { this.showDocumentModal = false; }
+  openDocumentModal() { this.isViewingEmployeeDocuments = false; this.showDocumentModal = true; }
+  closeDocumentModal() { this.showDocumentModal = false; this.isViewingEmployeeDocuments = false; }
   onDocumentSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
@@ -962,6 +978,22 @@ export class AdminDashboard implements OnInit {
         this.savedDocuments.push({ file, saved: false, uploadedAt: new Date().toISOString(), uploadedBy: this.fullName });
       });
       input.value = '';
+    }
+  }
+  viewDocument(doc: { file: File; id?: number }) {
+    if (doc.id) {
+      this.leaveService.downloadLeaveFile(doc.id).subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+        },
+        error: () => this.toast.show('Failed to view document.', 'error')
+      });
+    } else {
+      const url = URL.createObjectURL(doc.file);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     }
   }
   get savedDocumentCount(): number {
@@ -972,16 +1004,41 @@ export class AdminDashboard implements OnInit {
     this.toast.show('Document saved!', 'success');
   }
   deleteSavedDocument(index: number) {
-    this.savedDocuments.splice(index, 1);
-    this.toast.show('Document deleted!', 'success');
+    const doc = this.savedDocuments[index];
+    if (doc.id && doc.saved) {
+      this.leaveService.deleteLeaveFile(doc.id).subscribe({
+        next: () => {
+          this.savedDocuments.splice(index, 1);
+          this.toast.show('Document deleted!', 'success');
+        },
+        error: () => this.toast.show('Failed to delete document.', 'error')
+      });
+    } else {
+      this.savedDocuments.splice(index, 1);
+      this.toast.show('Document removed!', 'success');
+    }
   }
-  downloadDocument(doc: { file: File }) {
-    const url = URL.createObjectURL(doc.file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = doc.file.name;
-    a.click();
-    URL.revokeObjectURL(url);
+  downloadDocument(doc: { file: File; id?: number }) {
+    if (doc.id) {
+      this.leaveService.downloadLeaveFile(doc.id).subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = doc.file.name;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.toast.show('Failed to download document.', 'error')
+      });
+    } else {
+      const url = URL.createObjectURL(doc.file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   }
   closeLeaveForm() { this.showLeaveForm = false; this.savedDocuments = []; }
   submitLeaveForm() {
@@ -1094,9 +1151,16 @@ export class AdminDashboard implements OnInit {
     this.form = { userName: '', fullName: '', email: '', password: '', role: '', active: true, gender: '' };
     this.errorMessage = '';
     this.fieldErrors = {};
+    this.nextCompanyId = '';
     this.userService.getNextCompanyId().subscribe({ next: (id) => this.nextCompanyId = id, error: () => {} });
   }
-  closeForm() { this.showForm = false; this.errorMessage = ''; }
+  closeForm() { 
+    this.showForm = false; 
+    this.errorMessage = ''; 
+    this.fieldErrors = {};
+    this.form = { userName: '', fullName: '', email: '', password: '', role: '', active: true, gender: '' };
+    this.nextCompanyId = '';
+  }
   submitForm() {
     this.errorMessage = '';
     if (Object.values(this.fieldErrors).some(e => e)) { this.errorMessage = 'Please fix the errors above.'; return; }
@@ -1110,6 +1174,8 @@ export class AdminDashboard implements OnInit {
         this.pageLoading = false;
         this.closeForm();
         this.toast.show('User created successfully!', 'success');
+        this.cacheService.invalidateUsers();
+        this.cacheService.invalidateManagers();
         this.loadData();
         this.userService.getNextCompanyId().subscribe({ next: (id) => this.nextCompanyId = id, error: () => {} });
       },
@@ -1138,7 +1204,12 @@ export class AdminDashboard implements OnInit {
     this.showEditForm = true;
     this.errorMessage = '';
   }
-  closeEditForm() { this.showEditForm = false; this.editingUser = null; this.errorMessage = ''; }
+  closeEditForm() { 
+    this.showEditForm = false; 
+    this.editingUser = null; 
+    this.errorMessage = ''; 
+    this.editForm = { userName: '', fullName: '', role: '', active: true, gender: '' };
+  }
   submitEditForm() {
     if (!this.editingUser) return;
     this.errorMessage = '';
@@ -1147,12 +1218,40 @@ export class AdminDashboard implements OnInit {
     }
     this.pageLoading = true;
     this.userService.updateUser(this.editingUser.id, this.editForm).subscribe({
-      next: () => { this.pageLoading = false; this.closeEditForm(); this.toast.show('User updated successfully!', 'success'); this.loadData(); },
+      next: () => { 
+        this.pageLoading = false; 
+        this.closeEditForm(); 
+        this.toast.show('User updated successfully!', 'success'); 
+        this.cacheService.invalidateUsers();
+        this.cacheService.invalidateManagers();
+        this.loadData(); 
+      },
       error: () => { this.pageLoading = false; this.toast.show('Failed to update user.', 'error'); }
     });
   }
   openTrailModal(leave: Leave) { this.trailLeave = leave; this.showTrailModal = true; }
   closeTrailModal() { this.showTrailModal = false; this.trailLeave = null; }
+
+  viewLeaveDocuments(leave: Leave) {
+    this.leaveService.getLeaveFiles(leave.id).subscribe({
+      next: (files) => {
+        if (files.length === 0) {
+          this.toast.show('No documents uploaded for this leave.', 'info');
+          return;
+        }
+        this.savedDocuments = files.map(f => ({
+          file: new File([], f.fileName),
+          id: f.id,
+          saved: true,
+          uploadedAt: f.uploadedAt,
+          uploadedBy: f.uploadedBy
+        }));
+        this.isViewingEmployeeDocuments = true;
+        this.showDocumentModal = true;
+      },
+      error: () => this.toast.show('Failed to load documents.', 'error')
+    });
+  }
 
   logout() { this.auth.logout(); this.router.navigate(['/']); }
 }

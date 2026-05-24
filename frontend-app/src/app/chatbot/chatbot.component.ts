@@ -9,8 +9,10 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { ChatbotService } from '../services/chatbot.service';
 import { AuthService } from '../services/auth';
+import { environment } from '../../environments/environment';
 
 interface ChatMessage {
   id: number;
@@ -57,6 +59,15 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
   currentTableData: any[] = [];
   currentTableMessage: ChatMessage | null = null;
   isMaximized = signal(false);
+  showApplyLeaveModal = signal(false);
+  applyingLeave = signal(false);
+  leaveTypes: any[] = [];
+  leaveForm = {
+    leaveType: '',
+    fromDate: '',
+    toDate: '',
+    reason: ''
+  };
 
   private msgIdSeq = 0;
   private abortController: AbortController | null = null;
@@ -71,7 +82,8 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
   constructor(
     private chatbotService: ChatbotService,
     private authService: AuthService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private http: HttpClient
   ) {}
 
   ngAfterViewChecked(): void {
@@ -235,7 +247,6 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
   private loadLatestSessionOrWelcome(): void {
     const email = this.authService.getEmail();
     if (!email) {
-      this.loadWelcomeMessage();
       return;
     }
 
@@ -248,12 +259,10 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
           this.loadSession(latest.sessionId);
           this.loadSessions();
         } else {
-          this.loadWelcomeMessage();
           this.loadSessions();
         }
       },
       error: () => {
-        this.loadWelcomeMessage();
         this.loadSessions();
       }
     });
@@ -418,6 +427,70 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
     );
   }
 
+  sendQuickMessage(message: string): void {
+    const quickActions = ['My Details', 'Leaves Left', 'Pending Leaves', 'Leave Types'];
+    
+    if (quickActions.includes(message)) {
+      this.addUserMessage(message);
+      this.isLoading.set(true);
+      
+      const botMsg = this.addBotMessage('', false, false, true);
+      const startTime = Date.now();
+      
+      const email = this.authService.getEmail();
+      const name = this.authService.getFullName();
+      const role = this.authService.getRole();
+      const isFirstMessage = this.currentSessionId === null;
+      
+      this.chatbotService.getQuickResponse(message, email, name, role).subscribe({
+        next: (data: any) => {
+          botMsg.isThinking = false;
+          botMsg.latency = Date.now() - startTime;
+          
+          // Use typewriter effect for streaming response
+          this.typeWriterEffect(botMsg, data.response);
+          
+          this.detectTable(botMsg);
+          this.isLoading.set(false);
+          this.shouldScrollToBottom = true;
+          
+          this.saveQuickResponseToHistory(message, data.response, email, startTime);
+          
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          botMsg.isThinking = false;
+          botMsg.text = 'Failed to get quick response. Please try again.';
+          this.isLoading.set(false);
+          this.shouldScrollToBottom = true;
+          this.cdr.detectChanges();
+        }
+      });
+    } else {
+      this.currentMessage = message;
+      this.sendMessage();
+    }
+  }
+  
+  private saveQuickResponseToHistory(userMessage: string, botResponse: string, email: string | null, startTime: number): void {
+    if (!email) return;
+    
+    const latency = Date.now() - startTime;
+    const isFirstMessage = this.currentSessionId === null;
+    
+    this.chatbotService.saveQuickChatHistory(userMessage, botResponse, email, this.currentSessionId, latency).subscribe({
+      next: (response: any) => {
+        if (isFirstMessage && response.sessionId) {
+          this.currentSessionId = response.sessionId;
+          console.log('Set current session ID from quick response:', this.currentSessionId);
+        }
+      },
+      error: (err) => {
+        console.error('Failed to save quick response to history:', err);
+      }
+    });
+  }
+
   onKeyPress(event: KeyboardEvent): void {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -438,7 +511,6 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
     this.stopStreaming();
     this.messages.set([]);
     this.currentSessionId = null;
-    this.loadWelcomeMessage();
   }
 
   toggleHistory(): void {
@@ -688,5 +760,62 @@ export class ChatbotComponent implements AfterViewChecked, OnDestroy {
       message.hasTable = true;
       message.tableData = tableData;
     }
+  }
+  
+  openApplyLeaveModal(): void {
+    this.loadLeaveTypes();
+    this.showApplyLeaveModal.set(true);
+  }
+  
+  closeApplyLeaveModal(): void {
+    this.showApplyLeaveModal.set(false);
+    this.leaveForm = { leaveType: '', fromDate: '', toDate: '', reason: '' };
+  }
+  
+  loadLeaveTypes(): void {
+    const token = sessionStorage.getItem('token');
+    this.http.get<any[]>(`${environment.apiUrl}/leave-service/api/leave-types`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    }).subscribe({
+      next: (types) => {
+        this.leaveTypes = types.map(t => ({ name: t.leaveName, maxDays: t.maxDays }));
+      },
+      error: (err) => console.error('Failed to load leave types', err)
+    });
+  }
+  
+  submitLeaveApplication(): void {
+    if (!this.leaveForm.leaveType || !this.leaveForm.fromDate || !this.leaveForm.toDate || !this.leaveForm.reason) {
+      alert('Please fill all fields');
+      return;
+    }
+    
+    this.applyingLeave.set(true);
+    const token = sessionStorage.getItem('token');
+    const email = this.authService.getEmail();
+    
+    const payload = {
+      emailId: email,
+      leaveType: this.leaveForm.leaveType,
+      fromDate: this.leaveForm.fromDate,
+      toDate: this.leaveForm.toDate,
+      reason: this.leaveForm.reason
+    };
+    
+    this.http.post(`${environment.apiUrl}/leave-service/api/leaves`, payload, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    }).subscribe({
+      next: () => {
+        this.applyingLeave.set(false);
+        this.closeApplyLeaveModal();
+        this.addUserMessage(`Apply leave: ${this.leaveForm.leaveType} from ${this.leaveForm.fromDate} to ${this.leaveForm.toDate}`);
+        this.addBotMessage('Your leave application has been submitted successfully! It will be reviewed by your manager.');
+        this.shouldScrollToBottom = true;
+      },
+      error: (err) => {
+        this.applyingLeave.set(false);
+        alert('Failed to submit leave application: ' + (err.error?.message || err.message));
+      }
+    });
   }
 }
