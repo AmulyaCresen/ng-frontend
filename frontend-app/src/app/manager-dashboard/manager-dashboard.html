@@ -1,0 +1,490 @@
+﻿<div class="layout">
+  <!-- Centralized Page Loader -->
+  <div class="page-loader" *ngIf="pageLoading">
+    <div class="page-loader-backdrop"></div>
+    <div class="page-loader-content">
+      <div class="page-spinner"></div>
+      <div class="page-loader-text">Processing...</div>
+    </div>
+  </div>
+  
+  <aside class="sidebar" [style.width.px]="sidebarWidth">
+    <div class="sidebar-resizer" (mousedown)="startResize($event)"></div>
+    <div class="sidebar-brand">
+      <img src="assets/logo.png" alt="Logo" class="sidebar-logo" />
+      <span class="brand-name" *ngIf="sidebarExpanded">LMS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item" *ngFor="let menu of filteredMenus"
+           [class.active]="activeMenu === menu.menuKey"
+           (click)="onMenuChange(menu.menuKey)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ng-container [ngSwitch]="menu.menuKey">
+            <ng-container *ngSwitchCase="'home'"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></ng-container>
+            <ng-container *ngSwitchCase="'mytasks'"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></ng-container>
+            <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+            <ng-container *ngSwitchCase="'audit'"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></ng-container>
+            <ng-container *ngSwitchCase="'teamtasks'"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></ng-container>
+            <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
+          </ng-container>
+        </svg>
+        <span *ngIf="sidebarExpanded">{{ menu.menuLabel }}</span>
+      </div>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <h2>{{ activeMenuLabel }}</h2>
+      <div class="profile-menu">
+        <div class="profile-btn" (click)="showProfile = !showProfile">
+          <svg class="profile-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span class="profile-name">{{ fullName }}</span>
+        </div>
+        <div class="profile-dropdown" *ngIf="showProfile">
+          <div class="dropdown-item logout" (click)="logout()">Logout</div>
+        </div>
+      </div>
+    </header>
+    <div class="content">
+      <ng-container *ngIf="activeMenu === 'home'">
+        <div class="welcome-banner">
+          <h1>Welcome, {{ fullName }} 👋</h1>
+          <p>You are logged in as <strong>{{ role }}</strong></p>
+          <span class="tagline">Your leave management, all in one place.</span>
+        </div>
+        <div class="quick-actions-heading">Quick Actions</div>
+        <div class="quick-actions">
+          <div class="qa-card" *ngFor="let menu of quickActionMenus" (click)="onMenuChange(menu.menuKey)">
+            <svg class="qa-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <ng-container [ngSwitch]="menu.menuKey">
+                <ng-container *ngSwitchCase="'mytasks'"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></ng-container>
+                <ng-container *ngSwitchCase="'apply'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></ng-container>
+                <ng-container *ngSwitchCase="'teamtasks'"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></ng-container>
+                <ng-container *ngSwitchDefault><circle cx="12" cy="12" r="10"/></ng-container>
+              </ng-container>
+            </svg>
+            <div class="qa-label">{{ menu.menuLabel }}</div>
+          </div>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="activeMenu === 'mytasks'">
+        <div class="leave-tabs">
+          <button class="leave-tab" [class.active-tab]="myTasksTab === 'pending'" (click)="myTasksTab = 'pending'">Pending Tasks</button>
+          <button class="leave-tab" [class.active-tab]="myTasksTab === 'logged'" (click)="myTasksTab = 'logged'">Logged Leaves</button>
+        </div>
+        <div class="table-wrap" [style.display]="myTasksTab === 'pending' ? 'block' : 'none'">
+          <ag-grid-angular
+            [rowData]="pendingLeaves"
+            [columnDefs]="pendingLeaveColDefs"
+            [defaultColDef]="defaultColDef"
+            [pagination]="true"
+            [paginationPageSize]="10"
+            [paginationPageSizeSelector]="[10, 20, 50]"
+            [animateRows]="true"
+            (gridReady)="onPendingGridReady($event)"
+            style="width: 100%; height: calc(100vh - 220px);">
+          </ag-grid-angular>
+        </div>
+        <div class="table-wrap" [style.display]="myTasksTab === 'logged' ? 'block' : 'none'">
+          <ag-grid-angular
+            [rowData]="loggedLeaves"
+            [columnDefs]="loggedLeaveColDefs"
+            [defaultColDef]="defaultColDef"
+            [pagination]="true"
+            [paginationPageSize]="10"
+            [paginationPageSizeSelector]="[10, 20, 50]"
+            [animateRows]="true"
+            (gridReady)="onLoggedGridReady($event)"
+            style="width: 100%; height: calc(100vh - 220px);">
+          </ag-grid-angular>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="activeMenu === 'apply'">
+        <div class="leave-tabs">
+          <button class="leave-tab" [class.active-tab]="applyLeaveTab === 'apply'" (click)="applyLeaveTab = 'apply'">Apply Leave</button>
+          <button class="leave-tab" [class.active-tab]="applyLeaveTab === 'history'" (click)="applyLeaveTab = 'history'">Leave History</button>
+        </div>
+        <ng-container *ngIf="applyLeaveTab === 'apply'">
+          <div class="section-header">
+            <span></span>
+            <button class="add-btn" (click)="openLeaveForm()">+ Apply Leave</button>
+          </div>
+          <div class="leave-balance-banner">
+            <div class="balance-card" *ngFor="let b of leaveBalances; let i = index">
+              <div class="balance-name">{{ b.leaveName }}</div>
+              <div class="balance-bar-wrap">
+                <div class="balance-bar" [style.width.%]="(b.usedDays / b.maxDays) * 100"
+                     [class.balance-bar-warn]="leaveAvailable[i].available <= 2"></div>
+              </div>
+              <div class="balance-numbers">
+                <span class="balance-used">{{ b.usedDays }} used</span>
+                <span class="balance-sep">/</span>
+                <span class="balance-max">{{ b.maxDays }} days</span>
+                <span class="balance-remaining" [class.balance-low]="leaveAvailable[i].available <= 2">{{ leaveAvailable[i].available }} left</span>
+              </div>
+              <div class="balance-pending" *ngIf="leaveAvailable[i].pendingDays > 0">{{ leaveAvailable[i].pendingDays }} pending</div>
+            </div>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="applyLeaveTab === 'history'">
+          <div class="table-wrap">
+            <ag-grid-angular
+              [rowData]="flattenedMyLeaves"
+              [columnDefs]="myLeaveColDefs"
+              [defaultColDef]="defaultColDef"
+              [pagination]="true"
+              [paginationPageSize]="10"
+              [paginationPageSizeSelector]="[10, 20, 50]"
+              [animateRows]="true"
+              style="width: 100%; height: calc(100vh - 220px);">
+            </ag-grid-angular>
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <ng-container *ngIf="activeMenu === 'teamtasks'">
+        <div *ngIf="teamTaskLoading" class="tasks-loading">
+          <div class="spinner"></div>
+          <span>Loading team tasks...</span>
+        </div>
+        <div *ngIf="!teamTaskLoading && teamTasks.length === 0" class="tasks-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <p>No team tasks found.</p>
+        </div>
+        <div *ngIf="!teamTaskLoading && teamTasks.length > 0" class="tasks-grid">
+          <div class="task-card" *ngFor="let task of teamTasks">
+            <div class="task-card-employee">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span class="task-employee-name">{{ getFullName(task.emailId || '') || task.emailId }}</span>
+            </div>
+            <div class="task-title">{{ task.title }}</div>
+            <div class="task-description" *ngIf="task.description">{{ task.description }}</div>
+            <div class="task-card-footer">
+              <span class="task-priority-badge" [ngClass]="'badge-' + task.priority.toLowerCase()">{{ task.priority }}</span>
+              <span class="task-status-badge" [ngClass]="'status-' + (task.status ? task.status.toLowerCase().replace('_', '-') : '')">{{ task.status === 'IN_PROGRESS' ? 'In Progress' : task.status === 'TODO' ? 'To Do' : task.status }}</span>
+              <span class="task-due" *ngIf="task.dueDate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> {{ fmtDate(task.dueDate) }}</span>
+            </div>
+            <div class="task-completion-info" *ngIf="task.status === 'COMPLETED'">
+              <div class="task-completion-row" *ngIf="task.completedAt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Completed on {{ fmtDate(task.completedAt) }}</span>
+              </div>
+              <div class="task-completion-row task-remarks" *ngIf="task.completionRemarks">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>{{ task.completionRemarks }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="activeMenu === 'audit'">
+        <app-audit-trail [userEmail]="fullName"></app-audit-trail>
+      </ng-container>
+
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showActionWizard" (click)="closeActionWizard()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Review Leave — {{ actionLeave?.emailId }}</h3>
+      <button class="close-btn" (click)="closeActionWizard()">&#x2715;</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <button class="wizard-approve-btn" (click)="openApproveAllConfirm()">Approve All</button>
+      <button class="wizard-reject-btn" (click)="openRejectAllConfirm()">Reject All</button>
+    </div>
+    <div class="day-config-section">
+      <div class="day-config-row" *ngFor="let d of dayDecisions" style="flex-wrap:wrap;gap:8px;align-items:flex-start;padding:12px 16px">
+        <div style="min-width:110px">
+          <div style="font-size:13px;font-weight:600;color:#1e293b">{{ fmtDate(d.date) }}</div>
+          <div style="font-size:12px;color:#94a3b8">{{ d.dayType === 'HALF_DAY' ? 'Half Day' : 'Full Day' }}</div>
+        </div>
+        <div class="field" style="min-width:140px;margin:0">
+          <label style="font-size:12px;margin-bottom:4px">Decision</label>
+          <select [(ngModel)]="d.status" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;width:100%">
+            <option value="APPROVED">Approve</option>
+            <option value="REJECTED">Reject</option>
+          </select>
+        </div>
+        <div class="field" *ngIf="d.status === 'REJECTED'" style="flex:1;min-width:160px;margin:0">
+          <label style="font-size:12px;margin-bottom:4px">Reason <span style="color:#ef4444">*</span></label>
+          <input type="text" [(ngModel)]="d.reason" placeholder="Enter rejection reason" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box" />
+        </div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:16px">
+      <button class="cancel-btn" (click)="closeActionWizard()">Cancel</button>
+      <button class="submit-btn" [disabled]="pageLoading" (click)="submitActionWizard()">
+        Submit Review
+      </button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showApproveAllConfirm" (click)="closeApproveAllConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Approve <strong>all {{ dayDecisions.length }} day(s)</strong> for <strong>{{ actionLeave?.emailId }}</strong>?</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeApproveAllConfirm()">Cancel</button>
+      <button class="submit-btn" (click)="confirmApproveAll()">Yes, Approve All</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showRejectAllConfirm" (click)="closeRejectAllConfirm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Reject All Days</h3>
+      <button class="close-btn" (click)="closeRejectAllConfirm()">&#x2715;</button>
+    </div>
+    <p style="font-size:14px;color:#475569;margin-bottom:16px">Rejecting all <strong>{{ dayDecisions.length }} day(s)</strong> for <strong>{{ actionLeave?.emailId }}</strong>. Please provide a reason.</p>
+    <div class="form-row">
+      <div class="field">
+        <label>Reason for Rejection <span style="color:#ef4444">*</span></label>
+        <input type="text" [(ngModel)]="rejectAllReason" placeholder="Enter rejection reason" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="cancel-btn" (click)="closeRejectAllConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" (click)="confirmRejectAll()">Yes, Reject All</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showRejectModal" (click)="closeRejectModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Reject Leave</h3>
+      <button class="close-btn" (click)="closeRejectModal()">&#x2715;</button>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Reason for Rejection <span style="color:#ef4444">*</span></label>
+        <input type="text" [(ngModel)]="rejectReason" name="rejectReason" placeholder="Enter rejection reason" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="cancel-btn" (click)="closeRejectModal()">Cancel</button>
+      <button class="delete-confirm-btn" [disabled]="pageLoading" (click)="confirmReject()">
+        Confirm Reject
+      </button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showLeaveForm" (click)="closeLeaveForm()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Apply for Leave</h3>
+      <button class="close-btn" (click)="closeLeaveForm()">&#x2715;</button>
+    </div>
+    <form (ngSubmit)="submitLeaveForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Type *</label>
+          <select [(ngModel)]="leaveFormType" name="leaveType" (ngModelChange)="buildLeaveDays()">
+            <option value="" disabled>Select leave type</option>
+            <option *ngFor="let lt of availableLeaveTypes" [value]="lt.leaveName">{{ lt.leaveName }} (max {{ lt.maxDays }} days)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Manager *</label>
+          <select [(ngModel)]="leaveFormManagerEmail" name="managerEmail">
+            <option value="" disabled>Select manager</option>
+            <option *ngFor="let m of managers" [value]="m.email">{{ m.fullName }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>From Date *</label>
+          <input type="date" [(ngModel)]="leaveFormFromDate" name="fromDate" [min]="today" (ngModelChange)="buildLeaveDays()" />
+        </div>
+        <div class="field">
+          <label>To Date *</label>
+          <input type="date" [(ngModel)]="leaveFormToDate" name="toDate" [min]="leaveFormFromDate || today" (ngModelChange)="buildLeaveDays()" />
+        </div>
+      </div>
+      <div *ngIf="leaveDays.length > 0" class="day-config-section">
+        <div class="day-config-row" *ngFor="let d of leaveDays">
+          <span class="day-config-date">{{ fmtDate(d.date) }}</span>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="d.dayType === 'FULL_DAY'" (click)="d.dayType = 'FULL_DAY'; d.halfDaySession = ''; validateLeaveDays()">Full Day</button>
+            <button type="button" [class.active]="d.dayType === 'HALF_DAY'" (click)="d.dayType = 'HALF_DAY'; validateLeaveDays()">Half Day</button>
+          </div>
+          <div class="day-type-toggle" *ngIf="d.dayType === 'HALF_DAY'">
+            <button type="button" [class.active]="d.halfDaySession === 'MORNING'" (click)="d.halfDaySession = 'MORNING'; validateLeaveDays()">Morning</button>
+            <button type="button" [class.active]="d.halfDaySession === 'AFTERNOON'" (click)="d.halfDaySession = 'AFTERNOON'; validateLeaveDays()">Afternoon</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Reason *</label>
+          <input type="text" [(ngModel)]="leaveFormReason" name="reason" placeholder="Enter reason" />
+        </div>
+        <div class="field" *ngIf="leaveFormFromDate && leaveFormToDate">
+          <label>Duration</label>
+          <input type="text" [value]="leaveDays.length > 0 ? totalLeaveDays + ' day(s)' : '0 day(s)'" readonly />
+        </div>
+      </div>
+      <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
+      <div class="form-actions">
+        <button type="button" class="add-btn" (click)="openDocumentModal()" style="padding:10px 20px;display:inline-flex;align-items:center;gap:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+          Attach Files
+          <span *ngIf="savedDocumentCount > 0" style="margin-left:4px;background:#10b981;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">{{ savedDocumentCount }}</span>
+        </button>
+        <button type="button" class="cancel-btn" (click)="closeLeaveForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError || leaveDays.length === 0">
+          Submit Application
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- Document Upload Modal -->
+<div class="modal-overlay" *ngIf="showDocumentModal" (click)="closeDocumentModal()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ isViewingEmployeeDocuments ? 'View Documents' : 'Upload Documents' }}</h3>
+      <button class="close-btn" (click)="closeDocumentModal()">&#x2715;</button>
+    </div>
+    <div style="padding:16px 0">
+      <div style="margin-bottom:16px" *ngIf="!isViewingEmployeeDocuments">
+        <label class="add-btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+          <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" (change)="onDocumentSelect($event)" style="display:none" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Select Files
+        </label>
+      </div>
+      <div *ngIf="savedDocuments.length > 0">
+        <div *ngFor="let doc of savedDocuments; let idx = index" [style]="'display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;margin-bottom:8px;' + (doc.saved ? 'background:#f0fdf4;border:1px solid #86efac' : 'background:#f8fafc;border:1px solid #e2e8f0')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" [attr.stroke]="doc.saved ? '#10b981' : '#64748b'" stroke-width="2">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+            <polyline points="13 2 13 9 20 9"/>
+          </svg>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500;color:#1e293b">{{ doc.file.name }}</div>
+            <div style="font-size:12px;color:#64748b">{{ (doc.file.size / 1024).toFixed(1) }} KB</div>
+            <div style="font-size:11px;color:#94a3b8" *ngIf="doc.uploadedAt && doc.saved">Uploaded: {{ doc.uploadedAt | slice:0:10 }}</div>
+            <div style="font-size:11px;color:#94a3b8" *ngIf="doc.uploadedBy && doc.saved">Uploaded By: {{ doc.uploadedBy }}</div>
+          </div>
+          <button *ngIf="!doc.saved && !isViewingEmployeeDocuments" (click)="viewDocument(doc)" class="submit-btn" style="padding:6px 12px;font-size:12px;background:#6366f1" title="View">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+          <button *ngIf="!doc.saved && !isViewingEmployeeDocuments" (click)="saveDocument(idx)" class="submit-btn" style="padding:6px 12px;font-size:12px" title="Save">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+          </button>
+          <button *ngIf="doc.saved" (click)="viewDocument(doc)" class="submit-btn" style="padding:6px 12px;font-size:12px;background:#6366f1" title="View">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+          <button *ngIf="doc.saved" (click)="downloadDocument(doc)" class="submit-btn" style="padding:6px 12px;font-size:12px;background:#10b981" title="Download">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
+          <button *ngIf="!isViewingEmployeeDocuments" (click)="deleteSavedDocument(idx)" style="background:transparent;border:none;color:#ef4444;cursor:pointer;padding:4px" title="Delete">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div *ngIf="savedDocuments.length === 0" style="text-align:center;padding:40px 20px;color:#94a3b8">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+          <polyline points="13 2 13 9 20 9"/>
+        </svg>
+        <p>No documents added yet. Click "Select Files" to upload.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" *ngIf="showEditLeaveForm" (click)="closeEditLeaveForm()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Leave Application</h3>
+      <button class="close-btn" (click)="closeEditLeaveForm()">&#x2715;</button>
+    </div>
+    <form (ngSubmit)="submitEditLeaveForm()" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label>Leave Type *</label>
+          <select [(ngModel)]="editLeaveForm.leaveType" name="editLeaveType">
+            <option value="" disabled>Select leave type</option>
+            <option *ngFor="let lt of availableLeaveTypes" [value]="lt.leaveName">{{ lt.leaveName }} (max {{ lt.maxDays }} days)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Day Type *</label>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="editLeaveForm.dayType === 'FULL_DAY'" (click)="editLeaveForm.dayType = 'FULL_DAY'; editLeaveForm.halfDaySession = ''; onEditLeaveDatesChange()">Full Day</button>
+            <button type="button" [class.active]="editLeaveForm.dayType === 'HALF_DAY'" (click)="editLeaveForm.dayType = 'HALF_DAY'; onEditLeaveDatesChange()">Half Day</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Date *</label>
+          <input type="date" [(ngModel)]="editLeaveForm.fromDate" name="editFromDate" [min]="today" (ngModelChange)="onEditLeaveDatesChange()" />
+        </div>
+        <div class="field" *ngIf="editLeaveForm.dayType === 'HALF_DAY'">
+          <label>Session *</label>
+          <div class="day-type-toggle">
+            <button type="button" [class.active]="editLeaveForm.halfDaySession === 'MORNING'" (click)="editLeaveForm.halfDaySession = 'MORNING'; onEditHalfDaySessionChange()">Morning</button>
+            <button type="button" [class.active]="editLeaveForm.halfDaySession === 'AFTERNOON'" (click)="editLeaveForm.halfDaySession = 'AFTERNOON'; onEditHalfDaySessionChange()">Afternoon</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Reason *</label>
+          <input type="text" [(ngModel)]="editLeaveForm.reason" name="editReason" placeholder="Enter reason" />
+        </div>
+      </div>
+      <div class="inline-error" *ngIf="leaveDayError" style="margin-bottom:12px">{{ leaveDayError }}</div>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="closeEditLeaveForm()">Cancel</button>
+        <button type="submit" class="submit-btn" [disabled]="pageLoading || !!leaveDayError">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<app-trail-modal
+  *ngIf="showTrailModal"
+  [leave]="trailLeave"
+  (close)="closeTrailModal()">
+</app-trail-modal>
+<!-- Delete Leave Confirm -->
+<div class="modal-overlay" *ngIf="showDeleteLeaveConfirm" (click)="closeDeleteLeaveConfirm()">
+  <div class="delete-modal" (click)="$event.stopPropagation()">
+    <p>Delete this <strong>{{ deletingLeave?.leaveType }}</strong> leave application? This cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <button class="cancel-btn" (click)="closeDeleteLeaveConfirm()">Cancel</button>
+      <button class="delete-confirm-btn" [disabled]="pageLoading" (click)="confirmDeleteLeave()">
+        Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+

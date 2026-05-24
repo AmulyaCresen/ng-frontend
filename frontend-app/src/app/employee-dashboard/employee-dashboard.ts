@@ -1,0 +1,741 @@
+﻿import { Component, OnInit, NgZone } from '@angular/core';
+import { AuthService } from '../services/auth';
+import { UserService, MenuItem } from '../services/user';
+import { LeaveService, LeaveType, Leave, LeaveDay, LeaveFile, CreateLeaveRequest, UpdateLeaveRequest, isRestrictedDate, PUBLIC_HOLIDAYS, calcWorkingDays, fmtDate, fmtDateLong } from '../services/leave.service';
+import { TaskService, Task } from '../services/task.service';
+import { CacheService } from '../services/cache.service';
+import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { AgGridAngular } from 'ag-grid-angular';
+import { ColDef, AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
+import { ToastService } from '../services/toast.service';
+import { TrailModalComponent } from '../shared/trail-modal.component';
+ModuleRegistry.registerModules([AllCommunityModule]);
+@Component({
+  selector: 'app-employee-dashboard',
+  standalone: true,
+  imports: [FormsModule, CommonModule, AgGridAngular, TrailModalComponent],
+  templateUrl: './employee-dashboard.html',
+  styleUrls: ['./employee-dashboard.css']
+})
+export class EmployeeDashboard implements OnInit {
+  activeMenu = sessionStorage.getItem('emp_activeMenu') || 'home';
+  applyLeaveTab = 'apply';
+  sidebarExpanded = true;
+  sidebarWidth = 230;
+  showProfile = false;
+  fullName = '';
+  role = '';
+  gender = '';
+  menus: MenuItem[] = [];
+  private userFullNameMap: Map<string, string> = new Map();
+  fmtDate = fmtDate;
+  getFullName(email: string): string {
+    return this.userFullNameMap.get(email) || email;
+  }
+  leaveTypes: LeaveType[] = [];
+  myLeaves: Leave[] = [];
+  leaveLoading = false;
+  deleteLoading = false;
+  editLoading = false;
+  tabLoading = false;
+  menuLoading = false;
+  refreshLoading = false;
+  pageLoading = false;
+  showLeaveForm = false;
+  showEditLeaveForm = false;
+  showDeleteLeaveConfirm = false;
+  editingLeave: Leave | null = null;
+  deletingLeave: Leave | null = null;
+  showTrailModal = false;
+  trailLeave: Leave | null = null;
+
+  myTasks: Task[] = [];
+  showTaskForm = false;
+  showDeleteTaskConfirm = false;
+  showEditTaskForm = false;
+  editingTask: Task | null = null;
+  editTaskStatus = '';
+  editTaskCompletedOn = '';
+  editTaskRemarks = '';
+  deletingTaskId: number | null = null;
+  taskFormTitle = '';
+  taskFormDescription = '';
+  taskFormPriority = '';
+  taskFormStatus = '';
+  taskFormDueDate = '';
+  taskFormManagerEmail = '';
+
+  leaveFormType = '';
+  leaveFormFromDate = '';
+  leaveFormToDate = '';
+  leaveFormReason = '';
+  leaveFormManagerEmail = '';
+  leaveDocuments: File[] = [];
+  managers: import('../services/user').User[] = [];
+  showDocumentModal = false;
+  savedDocuments: { file: File; id?: number; saved: boolean; uploadedAt?: string; uploadedBy?: string }[] = [];
+  leaveDays: LeaveDay[] = [];
+  leaveDayError = '';
+  editLeaveForm: UpdateLeaveRequest = { leaveType: '', fromDate: '', toDate: '', reason: '', comments: '', dayType: 'FULL_DAY', halfDaySession: '' };
+  editLeaveDayCount = 0;
+  today = new Date().toISOString().split('T')[0];
+  get availableLeaveTypes(): LeaveType[] {
+    const g = this.gender?.toLowerCase();
+    return this.leaveTypes.filter(t => {
+      const u = t.leaveUniqueName?.toUpperCase();
+      if (u === 'MATERNITY' && g === 'male') return false;
+      if (u === 'PATERNITY' && g === 'female') return false;
+      return true;
+    });
+  }
+  get filteredMenus(): MenuItem[] {
+    const filtered = this.menus.filter(m => m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const hasTodo = filtered.some(m => m.menuKey === 'todo');
+    if (!hasTodo) {
+      filtered.push({ id: 999, menuKey: 'todo', menuLabel: 'Todo', menuOrder: 2, active: true });
+    }
+    return filtered.sort((a, b) => (a.menuOrder || 0) - (b.menuOrder || 0));
+  }
+  get quickActionMenus(): MenuItem[] {
+    const filtered = this.menus.filter(m => m.menuKey !== 'home' && m.menuKey !== 'leavehistory' && m.menuKey !== 'audit');
+    const hasTodo = filtered.some(m => m.menuKey === 'todo');
+    if (!hasTodo) {
+      filtered.push({ id: 999, menuKey: 'todo', menuLabel: 'Todo', menuOrder: 2, active: true });
+    }
+    return filtered.sort((a, b) => (a.menuOrder || 0) - (b.menuOrder || 0));
+  }
+  get activeMenuLabel(): string {
+    return this.menus.find(m => m.menuKey === this.activeMenu)?.menuLabel || this.activeMenu;
+  }
+  private isTakenDate(iso: string): boolean {
+    return this.myLeaves.some(l => {
+      if (l.status === 'PARTIAL') {
+        return l.days?.some(d => d.date === iso && d.status === 'APPROVED') ?? false;
+      }
+      if (l.status !== 'APPROVED' && l.status !== 'PENDING') return false;
+      if (l.days && l.days.length > 0) return l.days.some(d => d.date === iso);
+      return iso >= l.fromDate && iso <= l.toDate;
+    });
+  }
+  buildLeaveDays() {
+    if (!this.leaveFormFromDate || !this.leaveFormToDate) { this.leaveDays = []; this.leaveDayError = ''; return; }
+    const [fy, fm, fd] = this.leaveFormFromDate.split('-').map(Number);
+    const [ty, tm, td] = this.leaveFormToDate.split('-').map(Number);
+    const from = new Date(fy, fm - 1, fd);
+    const to = new Date(ty, tm - 1, td);
+    if (to < from) { this.leaveDays = []; this.leaveDayError = ''; return; }
+    const existing = new Map(this.leaveDays.map(d => [d.date, d]));
+    const days: LeaveDay[] = [];
+    const cur = new Date(from);
+    while (cur <= to) {
+      const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+      if (!isRestrictedDate(iso) && !this.isTakenDate(iso)) {
+        days.push(existing.get(iso) ?? { date: iso, dayType: 'FULL_DAY', halfDaySession: '' });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    if (days.length === 0) {
+      this.leaveDays = [];
+      this.leaveDayError = 'All working days in this range are already applied or on holiday.';
+      return;
+    }
+    if (this.leaveFormType) {
+      const lt = this.leaveTypes.find(t => t.leaveName === this.leaveFormType);
+      if (lt) {
+        const usedOrPending = this.myLeaves
+          .filter(l => l.leaveType === lt.leaveName && (l.status === 'APPROVED' || l.status === 'PENDING' || l.status === 'PARTIAL'))
+          .reduce((s, l) => {
+            if (l.status === 'PARTIAL' && l.days?.length)
+              return s + l.days.filter((d: any) => d.status === 'APPROVED').reduce((a: number, d: any) => a + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+            return s + this.getDays(l);
+          }, 0);
+        const newTotal = days.reduce((s, d) => s + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+        if (usedOrPending + newTotal > lt.maxDays) {
+          this.leaveDays = [];
+          this.leaveDayError = `Only ${lt.maxDays - usedOrPending} day(s) remaining for ${lt.leaveName} (includes pending leaves).`;
+          return;
+        }
+      }
+    }
+    this.leaveDays = days;
+    this.leaveDayError = '';
+    this.validateLeaveDays(false);
+  }
+  validateLeaveDays(onSubmit = false): void {
+    this.leaveDayError = '';
+    if (!this.leaveFormType || this.leaveDays.length === 0) return;
+    const lt = this.leaveTypes.find(t => t.leaveName === this.leaveFormType);
+    if (lt) {
+      const usedOrPending = this.myLeaves
+        .filter(l => l.leaveType === lt.leaveName && (l.status === 'APPROVED' || l.status === 'PENDING' || l.status === 'PARTIAL'))
+        .reduce((s, l) => {
+          if (l.status === 'PARTIAL' && l.days?.length)
+            return s + l.days.filter((d: any) => d.status === 'APPROVED').reduce((a: number, d: any) => a + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+          return s + this.getDays(l);
+        }, 0);
+      const newTotal = this.leaveDays.reduce((s, d) => s + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+      if (usedOrPending + newTotal > lt.maxDays) {
+        this.leaveDayError = `Only ${lt.maxDays - usedOrPending} day(s) remaining for ${lt.leaveName} (includes pending leaves).`;
+        return;
+      }
+    }
+    if (onSubmit) {
+      for (const d of this.leaveDays) {
+        if (d.dayType === 'HALF_DAY' && !d.halfDaySession) {
+          this.leaveDayError = `Please select Morning or Afternoon for ${d.date}.`;
+          return;
+        }
+      }
+    }
+  }
+  private getDays(l: Leave): number {
+    if (l.totalDays != null) return l.totalDays;
+    if (l.days && l.days.length > 0) return l.days.reduce((s, d) => s + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+    return l.dayType === 'HALF_DAY' ? 0.5 : calcWorkingDays(l.fromDate, l.toDate);
+  }
+  get totalLeaveDays(): number {
+    return this.leaveDays.reduce((s, d) => s + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+  }
+  get leaveBalances(): { leaveName: string; maxDays: number; usedDays: number; remaining: number }[] {
+    return this.availableLeaveTypes.map(lt => {
+      const usedDays = this.myLeaves
+        .filter(l => l.leaveType === lt.leaveName && (l.status === 'APPROVED' || l.status === 'PARTIAL'))
+        .reduce((sum, l) => {
+          if (l.status === 'PARTIAL' && l.days?.length) {
+            return sum + l.days.filter((d: any) => d.status === 'APPROVED').reduce((s: number, d: any) => s + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+          }
+          return sum + this.getDays(l);
+        }, 0);
+      return { leaveName: lt.leaveName, maxDays: lt.maxDays, usedDays, remaining: Math.max(0, lt.maxDays - usedDays) };
+    });
+  }
+  get leaveAvailable(): { leaveName: string; maxDays: number; available: number; pendingDays: number }[] {
+    return this.availableLeaveTypes.map(lt => {
+      const approvedDays = this.myLeaves
+        .filter(l => l.leaveType === lt.leaveName && (l.status === 'APPROVED' || l.status === 'PARTIAL'))
+        .reduce((s, l) => {
+          if (l.status === 'PARTIAL' && l.days?.length) {
+            return s + l.days.filter((d: any) => d.status === 'APPROVED').reduce((a: number, d: any) => a + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0);
+          }
+          return s + this.getDays(l);
+        }, 0);
+      const pendingDays = this.myLeaves
+        .filter(l => l.leaveType === lt.leaveName && l.status === 'PENDING')
+        .reduce((s, l) => s + this.getDays(l), 0);
+      return { leaveName: lt.leaveName, maxDays: lt.maxDays, available: Math.max(0, lt.maxDays - approvedDays - pendingDays), pendingDays };
+    });
+  }
+  onEditLeaveDatesChange() {
+    if (this.editLeaveForm.dayType === 'HALF_DAY') this.editLeaveForm.toDate = this.editLeaveForm.fromDate;
+    if (this.editLeaveForm.fromDate && isRestrictedDate(this.editLeaveForm.fromDate)) {
+      this.editLeaveDayCount = 0; this.leaveDayError = 'From date cannot be a weekend or public holiday.'; return;
+    }
+    if (this.editLeaveForm.toDate && isRestrictedDate(this.editLeaveForm.toDate)) {
+      this.editLeaveDayCount = 0; this.leaveDayError = 'To date cannot be a weekend or public holiday.'; return;
+    }
+    this.leaveDayError = '';
+  }
+  onEditHalfDaySessionChange() { this.leaveDayError = ''; }
+  get flattenedLeaves(): any[] {
+    return this.myLeaves.map(l => {
+      const lastTrail = l.trail?.length ? l.trail[l.trail.length - 1] : null;
+      const managerTrail = l.trail?.find((t: any) => t.stage === 'MANAGER');
+      const adminTrail = l.trail?.find((t: any) => t.stage === 'ADMIN');
+      let reviewedBy = '';
+      let rejectionReason = '';
+      if (l.status === 'REJECTED') {
+        const rt = adminTrail?.status === 'REJECTED' ? adminTrail : managerTrail;
+        reviewedBy = this.getFullName(rt?.reviewedBy || lastTrail?.reviewedBy || '');
+        rejectionReason = rt?.rejectionReason || lastTrail?.rejectionReason || '';
+      } else {
+        reviewedBy = this.getFullName(lastTrail?.reviewedBy || '');
+      }
+      const totalDays = l.days?.length
+        ? l.days.reduce((s: number, d: any) => s + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0)
+        : this.getDays(l);
+      return { ...l, reviewedBy, rejectionReason, totalDays };
+    });
+  }
+  myLeaveColDefs: ColDef[] = [
+    { field: 'leaveType', headerName: 'Leave Type', flex: 1, sortable: true, filter: true },
+    { field: 'fromDate', headerName: 'From', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'toDate', headerName: 'To', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { headerName: 'Duration', width: 100, sortable: false,
+      cellRenderer: (p: any) => {
+        const total = p.data?.totalDays ??
+          (p.data?.days?.length ? p.data.days.reduce((s: number, d: any) => s + (d.dayType === 'HALF_DAY' ? 0.5 : 1), 0) : 1);
+        return `<span class="full-day-badge">${total} day(s)</span>`;
+      }
+    },
+    { field: 'reason', headerName: 'Reason', flex: 1.5, sortable: true, filter: true },
+    { field: 'createdAt', headerName: 'Applied On', width: 130, sortable: true, valueFormatter: (p: any) => fmtDateLong(p.value) },
+    { field: 'status', headerName: 'Status', width: 155, sortable: true,
+      cellRenderer: (p: any) => {
+        const s = p.value || 'PENDING';
+        const cls = s === 'APPROVED' ? 'status-approved'
+          : s === 'REJECTED' ? 'status-rejected'
+          : s === 'PARTIAL' ? 'status-partial'
+          : s === 'MANAGER_APPROVED' ? 'status-manager-approved'
+          : 'status-pending';
+        const label = s === 'PARTIAL' ? 'Partially Approved'
+          : s === 'MANAGER_APPROVED' ? 'Manager Approved'
+          : s === 'REJECTED' ? 'Rejected'
+          : s === 'APPROVED' ? 'Approved'
+          : 'Pending';
+        return `<span class="${cls}">${label}</span>`;
+      }
+    },
+    { headerName: 'Action', width: 100, sortable: false, filter: false,
+      cellRenderer: (p: any) => {
+        const s = p.data?.status || 'PENDING';
+        const isPending = s === 'PENDING';
+        const disabledAttr = isPending ? '' : 'disabled';
+        const disabledClass = isPending ? '' : ' btn-disabled';
+        return `<button class="edit-btn${disabledClass}" title="Edit" ${disabledAttr}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+               <button class="delete-btn${disabledClass}" title="Delete" ${disabledAttr}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`;
+      },
+      onCellClicked: (p: any) => {
+        const btn = (p.event?.target as HTMLElement)?.closest('button');
+        if (!btn) return;
+        if (btn.classList.contains('edit-btn') && !btn.hasAttribute('disabled')) this.openEditLeaveForm(p.data);
+        else if (btn.classList.contains('delete-btn') && !btn.hasAttribute('disabled')) this.openDeleteLeaveConfirm(p.data);
+      }
+    },
+    { headerName: 'Trail', width: 110, sortable: false, filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center' },
+      cellRenderer: () => `<button class="audit-view-btn">View Trail</button>`,
+      onCellClicked: (p: any) => { this.zone.run(() => this.openTrailModal(p.data)); }
+    }
+  ];
+  defaultColDef: ColDef = { resizable: true };
+  constructor(
+    private auth: AuthService,
+    private userService: UserService,
+    private leaveService: LeaveService,
+    private taskService: TaskService,
+    private cacheService: CacheService,
+    private router: Router,
+    private toast: ToastService,
+    private zone: NgZone
+  ) {
+    this.fullName = this.auth.getFullName() || 'Employee';
+    this.role = this.auth.getRole() || 'EMPLOYEE';
+    this.gender = this.auth.getGender() || '';
+  }
+  ngOnInit() {
+    // Load menus with cache
+    const cachedMenus = this.cacheService.getMenus(this.role);
+    if (cachedMenus) {
+      this.menus = cachedMenus;
+    } else {
+      this.userService.getMenusByRole(this.role).subscribe({ 
+        next: (m) => { 
+          this.menus = m; 
+          this.cacheService.setMenus(this.role, m);
+        }, 
+        error: () => {} 
+      });
+    }
+
+    // Load holidays - service handles PUBLIC_HOLIDAYS population
+    this.leaveService.getHolidays().subscribe({
+      next: (h) => { 
+        this.cacheService.setHolidays(h);
+      },
+      error: () => {}
+    });
+
+    // Load leave types with cache
+    const cachedLeaveTypes = this.cacheService.getLeaveTypes();
+    if (cachedLeaveTypes) {
+      this.leaveTypes = cachedLeaveTypes;
+    } else {
+      this.leaveService.getLeaveTypes().subscribe({ 
+        next: (t) => { 
+          this.leaveTypes = t; 
+          this.cacheService.setLeaveTypes(t);
+        }, 
+        error: () => {} 
+      });
+    }
+
+    // Load users with cache for name mapping
+    const cachedUsers = this.cacheService.getUsers();
+    if (cachedUsers) {
+      cachedUsers.forEach((u: any) => this.userFullNameMap.set(u.email, u.fullName));
+    } else {
+      this.userService.getAllUsers().subscribe({
+        next: (users) => {
+          users.forEach(u => this.userFullNameMap.set(u.email, u.fullName));
+          this.cacheService.setUsers(users);
+        },
+        error: () => {}
+      });
+    }
+
+    // Load managers with cache
+    const cachedManagers = this.cacheService.getManagers();
+    if (cachedManagers) {
+      this.managers = cachedManagers;
+    } else {
+      this.userService.getManagers().subscribe({ 
+        next: (m) => { 
+          this.managers = m; 
+          this.cacheService.setManagers(m);
+        }, 
+        error: () => {} 
+      });
+    }
+
+    // Always fetch fresh leaves (not cached)
+    this.refreshMyLeaves();
+    this.refreshMyTasks();
+    
+    if (this.activeMenu !== 'home') this.onMenuChange(this.activeMenu);
+  }
+  onMenuChange(menuKey: string) {
+    this.menuLoading = true;
+    this.activeMenu = menuKey;
+    sessionStorage.setItem('emp_activeMenu', menuKey);
+    if (menuKey === 'apply') {
+      this.applyLeaveTab = 'apply';
+    }
+    if (menuKey === 'todo') {
+      this.refreshMyTasks();
+    }
+    window.setTimeout(() => this.menuLoading = false, 300);
+  }
+
+  onTabChange(tab: string) {
+    this.tabLoading = true;
+    this.applyLeaveTab = tab;
+    window.setTimeout(() => this.tabLoading = false, 200);
+  }
+  refreshMyLeaves() {
+    this.refreshLoading = true;
+    this.leaveService.clearLeavesCache();
+    this.leaveService.getMyLeaves().subscribe({ 
+      next: (l) => { this.myLeaves = l; this.refreshLoading = false; }, 
+      error: () => { this.refreshLoading = false; } 
+    });
+  }
+  openLeaveForm() {
+    this.leaveFormType = '';
+    this.leaveFormFromDate = '';
+    this.leaveFormToDate = '';
+    this.leaveFormReason = '';
+    this.leaveFormManagerEmail = '';
+    this.leaveDays = [];
+    this.leaveDayError = '';
+    this.leaveDocuments = [];
+    this.savedDocuments = [];
+    this.showLeaveForm = true;
+  }
+
+  openDocumentModal() {
+    this.showDocumentModal = true;
+  }
+
+  closeDocumentModal() {
+    this.showDocumentModal = false;
+  }
+
+  onDocumentSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      Array.from(input.files).forEach(file => {
+        this.savedDocuments.push({ file, saved: false, uploadedAt: new Date().toISOString(), uploadedBy: this.fullName });
+      });
+      input.value = '';
+    }
+  }
+
+  viewDocument(doc: { file: File; id?: number }) {
+    const url = URL.createObjectURL(doc.file);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }
+
+  get savedDocumentCount(): number {
+    return this.savedDocuments.filter(d => d.saved).length;
+  }
+
+  saveDocument(index: number) {
+    this.savedDocuments[index].saved = true;
+    this.toast.show('Document saved!', 'success');
+  }
+
+  deleteSavedDocument(index: number) {
+    const doc = this.savedDocuments[index];
+    this.savedDocuments.splice(index, 1);
+    this.toast.show('Document deleted!', 'success');
+    
+    // TODO: Backend integration
+    // if (doc.id) {
+    //   this.leaveService.deleteLeaveFile(doc.id).subscribe({
+    //     next: () => {
+    //       this.savedDocuments.splice(index, 1);
+    //       this.toast.show('Document deleted!', 'success');
+    //     },
+    //     error: () => {
+    //       this.toast.show('Failed to delete document', 'error');
+    //     }
+    //   });
+    // }
+  }
+
+  downloadDocument(doc: { file: File }) {
+    const url = URL.createObjectURL(doc.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    // TODO: Backend integration
+    // if (doc.id) {
+    //   this.leaveService.downloadLeaveFile(doc.id, doc.file.name).subscribe({
+    //     next: (blob) => {
+    //       const url = URL.createObjectURL(blob);
+    //       const a = document.createElement('a');
+    //       a.href = url;
+    //       a.download = doc.file.name;
+    //       a.click();
+    //       URL.revokeObjectURL(url);
+    //     },
+    //     error: () => {
+    //       this.toast.show('Failed to download document', 'error');
+    //     }
+    //   });
+    // }
+  }
+
+  closeLeaveForm() { 
+    this.showLeaveForm = false; 
+    this.leaveDocuments = []; 
+    this.savedDocuments = [];
+  }
+  submitLeaveForm() {
+    if (!this.leaveFormType || !this.leaveFormFromDate || !this.leaveFormToDate || !this.leaveFormReason) {
+      this.toast.show('Leave type, dates and reason are required.', 'error'); return;
+    }
+    this.validateLeaveDays(true);
+    if (this.leaveDayError) { this.toast.show(this.leaveDayError, 'error'); return; }
+    if (this.leaveDays.length === 0) { this.toast.show('No working days in selected range.', 'error'); return; }
+    this.leaveLoading = true;
+    const req: CreateLeaveRequest = {
+      leaveType: this.leaveFormType,
+      fromDate: this.leaveDays[0].date,
+      toDate: this.leaveDays[this.leaveDays.length - 1].date,
+      reason: this.leaveFormReason,
+      comments: '',
+      dayType: this.leaveDays[0].dayType,
+      halfDaySession: this.leaveDays[0].halfDaySession,
+      days: this.leaveDays,
+      managerEmail: this.leaveFormManagerEmail || undefined
+    };
+    this.leaveService.createLeave(req).subscribe({
+      next: (created) => {
+        const filesToUpload = this.savedDocuments.filter(d => d.saved).map(d => d.file);
+        if (filesToUpload.length > 0 && created?.id) {
+          let uploadedCount = 0;
+          const totalFiles = filesToUpload.length;
+          filesToUpload.forEach(file => {
+            this.leaveService.uploadLeaveDocument(created.id, file).subscribe({
+              next: () => {
+                uploadedCount++;
+                if (uploadedCount === totalFiles) {
+                  this.leaveLoading = false;
+                  this.closeLeaveForm();
+                  this.toast.show('Leave application submitted with documents!', 'success');
+                  this.refreshMyLeaves();
+                }
+              },
+              error: () => {
+                uploadedCount++;
+                if (uploadedCount === totalFiles) {
+                  this.leaveLoading = false;
+                  this.closeLeaveForm();
+                  this.toast.show('Leave submitted but some documents failed to upload.', 'error');
+                  this.refreshMyLeaves();
+                }
+              }
+            });
+          });
+        } else {
+          this.leaveLoading = false;
+          this.closeLeaveForm();
+          this.toast.show('Leave application submitted!', 'success');
+          this.refreshMyLeaves();
+        }
+      },
+      error: (err) => {
+        this.leaveLoading = false;
+        this.toast.show(err.status === 409 ? 'You already have a leave overlapping these dates.' : 'Failed to submit leave.', 'error');
+      }
+    });
+  }
+  openEditLeaveForm(leave: Leave) {
+    this.editingLeave = leave;
+    this.editLeaveForm = { leaveType: leave.leaveType, fromDate: leave.fromDate, toDate: leave.toDate, reason: leave.reason, comments: '', dayType: leave.dayType || 'FULL_DAY', halfDaySession: leave.halfDaySession || '' };
+    this.leaveDayError = ''; this.showEditLeaveForm = true;
+  }
+  closeEditLeaveForm() { this.showEditLeaveForm = false; this.editingLeave = null; }
+  submitEditLeaveForm() {
+    if (!this.editingLeave) return;
+    if (!this.editLeaveForm.leaveType || !this.editLeaveForm.fromDate || !this.editLeaveForm.toDate || !this.editLeaveForm.reason) {
+      this.toast.show('All required fields must be filled.', 'error'); return;
+    }
+    if (this.editLeaveForm.dayType === 'HALF_DAY' && !this.editLeaveForm.halfDaySession) {
+      this.toast.show('Please select Morning or Afternoon for half day.', 'error'); return;
+    }
+    this.pageLoading = true;
+    this.leaveService.updateLeave(this.editingLeave.id, this.editLeaveForm).subscribe({
+      next: () => { this.pageLoading = false; this.closeEditLeaveForm(); this.toast.show('Leave updated successfully!', 'success'); this.refreshMyLeaves(); },
+      error: (err) => { this.pageLoading = false; this.toast.show(err.status === 409 ? 'You already have a leave overlapping these dates.' : 'Failed to update leave.', 'error'); }
+    });
+  }
+  openDeleteLeaveConfirm(leave: Leave) { this.deletingLeave = leave; this.showDeleteLeaveConfirm = true; }
+  closeDeleteLeaveConfirm() { this.deletingLeave = null; this.showDeleteLeaveConfirm = false; }
+  confirmDeleteLeave() {
+    if (!this.deletingLeave) return;
+    this.pageLoading = true;
+    this.leaveService.deleteLeave(this.deletingLeave.id).subscribe({
+      next: () => { this.pageLoading = false; this.toast.show('Leave deleted!', 'success'); this.closeDeleteLeaveConfirm(); this.refreshMyLeaves(); },
+      error: () => { this.pageLoading = false; this.toast.show('Failed to delete leave.', 'error'); this.closeDeleteLeaveConfirm(); }
+    });
+  }
+  startResize(event: MouseEvent) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = this.sidebarWidth;
+    const onMouseMove = (e: MouseEvent) => { this.sidebarWidth = Math.min(Math.max(startWidth + (e.clientX - startX), 68), 350); };
+    const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+  openTrailModal(leave: Leave) { this.trailLeave = leave; this.showTrailModal = true; }
+  closeTrailModal() { this.showTrailModal = false; this.trailLeave = null; }
+
+  refreshMyTasks() {
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => { this.myTasks = tasks; },
+      error: () => { this.toast.show('Failed to load tasks', 'error'); }
+    });
+  }
+
+  openTaskForm() {
+    this.taskFormTitle = '';
+    this.taskFormDescription = '';
+    this.taskFormPriority = '';
+    this.taskFormStatus = '';
+    this.taskFormDueDate = '';
+    this.taskFormManagerEmail = '';
+    this.showTaskForm = true;
+  }
+
+  closeTaskForm() {
+    this.showTaskForm = false;
+  }
+
+  submitTaskForm() {
+    if (!this.taskFormTitle || !this.taskFormPriority || !this.taskFormStatus) {
+      this.toast.show('Title, priority and status are required', 'error');
+      return;
+    }
+
+    this.pageLoading = true;
+    const taskRequest: any = {
+      title: this.taskFormTitle,
+      description: this.taskFormDescription,
+      priority: this.taskFormPriority,
+      status: this.taskFormStatus,
+      dueDate: this.taskFormDueDate || undefined,
+      managerEmail: this.taskFormManagerEmail || undefined
+    };
+
+    this.taskService.createTask(taskRequest).subscribe({
+      next: () => {
+        this.pageLoading = false;
+        this.closeTaskForm();
+        this.toast.show('Task created successfully!', 'success');
+        this.refreshMyTasks();
+      },
+      error: (err) => {
+        this.pageLoading = false;
+        console.error('Task creation error:', err);
+        this.toast.show(err.error?.message || 'Failed to create task', 'error');
+      }
+    });
+  }
+
+  deleteTask(taskId: number) {
+    this.deletingTaskId = taskId;
+    this.showDeleteTaskConfirm = true;
+  }
+
+  openEditTaskForm(task: Task) {
+    this.editingTask = task;
+    this.editTaskStatus = task.status;
+    this.editTaskCompletedOn = task.completedAt ? task.completedAt.split('T')[0] : '';
+    this.editTaskRemarks = task.completionRemarks || '';
+    this.showEditTaskForm = true;
+  }
+
+  closeEditTaskForm() {
+    this.showEditTaskForm = false;
+    this.editingTask = null;
+    this.editTaskCompletedOn = '';
+    this.editTaskRemarks = '';
+  }
+
+  submitEditTaskForm() {
+    if (!this.editingTask?.id || !this.editTaskStatus) return;
+    this.pageLoading = true;
+    const updated: Task = {
+      ...this.editingTask,
+      status: this.editTaskStatus,
+      completedAt: this.editTaskStatus === 'COMPLETED' ? (this.editTaskCompletedOn || this.today) : undefined,
+      completionRemarks: this.editTaskStatus === 'COMPLETED' ? this.editTaskRemarks : undefined
+    };
+    this.taskService.updateTask(this.editingTask.id, updated).subscribe({
+      next: () => {
+        this.pageLoading = false;
+        this.closeEditTaskForm();
+        this.toast.show('Task updated!', 'success');
+        this.refreshMyTasks();
+      },
+      error: () => {
+        this.pageLoading = false;
+        this.toast.show('Failed to update task', 'error');
+      }
+    });
+  }
+
+  closeDeleteTaskConfirm() {
+    this.showDeleteTaskConfirm = false;
+    this.deletingTaskId = null;
+  }
+
+  confirmDeleteTask() {
+    if (this.deletingTaskId == null) return;
+    this.pageLoading = true;
+    this.taskService.deleteTask(this.deletingTaskId).subscribe({
+      next: () => {
+        this.pageLoading = false;
+        this.closeDeleteTaskConfirm();
+        this.toast.show('Task deleted successfully!', 'success');
+        this.refreshMyTasks();
+      },
+      error: () => {
+        this.pageLoading = false;
+        this.closeDeleteTaskConfirm();
+        this.toast.show('Failed to delete task', 'error');
+      }
+    });
+  }
+
+  logout() { this.auth.logout(); this.router.navigate(['/']); }
+}
